@@ -21,3 +21,5 @@
 [CodeX][260630182054] keep Next.js generated type declaration in repository
 [CodeX][260630183817] add nickname 3-12 character validation and user message 300 character send-time limit
 [CodeX][260630185251] 修复新访客首次读取留言次数时把缺失值误判为 0，现在会初始化为 3 次
+[CodeX][260630185842] optimize admin interface with responsive desktop and mobile layouts
+[CodeX][260630190457] separate admin and received messages with in-page delete confirmation and portrait layout tweaks
