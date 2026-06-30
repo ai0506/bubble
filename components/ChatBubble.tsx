@@ -50,6 +50,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   const [motionUrl, setMotionUrl] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [motionPlaying, setMotionPlaying] = useState(false);
+  const [motionPreviewReady, setMotionPreviewReady] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const isUser = message.sender_kind === "user";
 
@@ -89,6 +90,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   useEffect(() => {
     const video = previewVideoRef.current;
     if (!video) return;
+    if (!motionPreviewReady) return;
     if (motionPlaying) {
       video.currentTime = 0;
       void video.play();
@@ -96,7 +98,14 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
       video.pause();
       video.currentTime = 0.001;
     }
-  }, [motionPlaying]);
+  }, [motionPlaying, motionPreviewReady]);
+
+  useEffect(() => {
+    if (previewOpen) {
+      setMotionPreviewReady(false);
+      setMotionPlaying(false);
+    }
+  }, [previewOpen, motionUrl]);
 
   function closePreview() {
     setPreviewOpen(false);
@@ -111,6 +120,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   const watermarkLabel = `@${watermarkName}`;
   // 纯视频实况（没有封面静态图）时，尺寸等 video 元数据加载后再知道
   const motionVideoOnly = isMotion && !message.media_path;
+  const hasChatPreview = Boolean(mediaUrl) || motionVideoOnly;
 
   return (
     <div className="px-3 py-1.5">
@@ -132,7 +142,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
           {isImage ? (
             <>
               {/* 缩略图 */}
-              {mediaUrl || (motionVideoOnly && motionUrl) ? (
+              {hasChatPreview ? (
                 <button
                   type="button"
                   onClick={() => setPreviewOpen(true)}
@@ -205,25 +215,51 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
 
                   {/* 媒体内容区 */}
                   <div className="flex min-h-0 flex-1 items-center justify-center px-4">
-                    <div
-                      className="relative"
-                      onClick={(event) => event.stopPropagation()}
-                    >
+                    <div className="relative flex items-center justify-center" onClick={(event) => event.stopPropagation()}>
                       {isMotion && motionUrl ? (
                         // 单一 video 元素，通过 ref 控制播放/暂停，避免切换时尺寸抖动
-                        <video
-                          ref={previewVideoRef}
-                          src={motionUrl}
-                          playsInline
-                          preload="metadata"
-                          disablePictureInPicture
-                          controlsList="nodownload nofullscreen noremoteplayback"
-                          onLoadedMetadata={(event) => { event.currentTarget.currentTime = 0.001; }}
-                          onEnded={() => setMotionPlaying(false)}
-                          onContextMenu={(event) => event.preventDefault()}
-                          className="block max-h-[calc(100vh-9rem)] w-auto max-w-full select-none object-contain"
-                          style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
-                        />
+                        <div
+                          className="relative flex items-center justify-center overflow-hidden rounded-2xl"
+                          style={{ width: "min(78vw, 360px)", height: "min(calc(100vh - 10rem), 480px)" }}
+                        >
+                          {!motionPreviewReady ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/10 text-white/70">
+                              <Play size={32} className="fill-current" />
+                            </div>
+                          ) : null}
+                          <video
+                            ref={previewVideoRef}
+                            src={motionUrl}
+                            playsInline
+                            preload="auto"
+                            disablePictureInPicture
+                            controlsList="nodownload nofullscreen noremoteplayback"
+                            onLoadedMetadata={(event) => {
+                              event.currentTarget.currentTime = 0.001;
+                            }}
+                            onLoadedData={() => {
+                              setMotionPreviewReady(true);
+                              onMediaReady?.();
+                            }}
+                            onCanPlay={() => {
+                              setMotionPreviewReady(true);
+                              onMediaReady?.();
+                            }}
+                            onEnded={() => setMotionPlaying(false)}
+                            onContextMenu={(event) => event.preventDefault()}
+                            className={`block h-full w-full select-none object-contain ${
+                              motionPreviewReady ? "visible" : "invisible"
+                            }`}
+                            style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+                          />
+                        </div>
+                      ) : isMotion ? (
+                        <div
+                          className="flex items-center justify-center rounded-2xl bg-white/10 text-white/70"
+                          style={{ width: "min(78vw, 360px)", height: "min(calc(100vh - 10rem), 480px)" }}
+                        >
+                          <Play size={32} className="fill-current" />
+                        </div>
                       ) : mediaUrl ? (
                         <img
                           src={mediaUrl}
