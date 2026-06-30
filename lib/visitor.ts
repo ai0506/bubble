@@ -1,5 +1,7 @@
 "use client";
 
+import { isNicknameLengthValid } from "@/lib/limits";
+
 const VISITOR_ID_KEY = "bubble_visitor_id";
 const NICKNAME_KEY = "bubble_nickname";
 const SUBSCRIPTION_EXPIRES_KEY = "bubble_subscription_expires_at";
@@ -21,7 +23,8 @@ export function getOrCreateVisitorId() {
 }
 
 export function getNickname() {
-  return window.localStorage.getItem(NICKNAME_KEY) || "";
+  const value = window.localStorage.getItem(NICKNAME_KEY) || "";
+  return isNicknameLengthValid(value) ? value : "";
 }
 
 export function setNickname(value: string) {

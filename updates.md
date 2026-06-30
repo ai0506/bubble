@@ -19,3 +19,4 @@
 [CodeX][260630153009] added project AGENTS.md with project overview, stack, safety notes, and personal collaboration requirements
 [CodeX][260630182020] add git ignore before uploading project to GitHub
 [CodeX][260630182054] keep Next.js generated type declaration in repository
+[CodeX][260630183817] add nickname 3-12 character validation and user message 300 character send-time limit

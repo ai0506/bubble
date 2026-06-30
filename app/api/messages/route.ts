@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { isNicknameLengthValid, isUserMessageLengthValid, NICKNAME_MAX_LENGTH, USER_MESSAGE_MAX_LENGTH } from "@/lib/limits";
 import { isMissingMessagesTable } from "@/lib/supabaseErrors";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -44,11 +45,17 @@ export async function POST(request: NextRequest) {
   } | null;
 
   const visitorId = normalizeText(body?.visitorId, 120);
-  const nickname = normalizeText(body?.nickname, 40);
-  const contentText = normalizeText(body?.contentText, 2000);
+  const nickname = normalizeText(body?.nickname, NICKNAME_MAX_LENGTH);
+  const contentText = normalizeText(body?.contentText, USER_MESSAGE_MAX_LENGTH + 1);
 
   if (!visitorId || !isValidVisitorId(visitorId) || !nickname || !contentText) {
     return Response.json({ error: "visitorId, nickname, and contentText are required" }, { status: 400 });
+  }
+  if (!isNicknameLengthValid(nickname)) {
+    return Response.json({ error: "Nickname must be 3 to 12 characters." }, { status: 400 });
+  }
+  if (!isUserMessageLengthValid(contentText)) {
+    return Response.json({ error: "Message must be 300 characters or fewer." }, { status: 400 });
   }
 
   const supabase = getSupabaseAdmin();

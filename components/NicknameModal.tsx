@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { isNicknameLengthValid, NICKNAME_MAX_LENGTH } from "@/lib/limits";
 
 const REQUIRED_ERROR = "\u8bf7\u8f93\u5165\u6635\u79f0";
-const TOO_LONG_ERROR = "\u6635\u79f0\u6700\u591a 40 \u4e2a\u5b57\u7b26";
+const LENGTH_ERROR = "\u6635\u79f0\u9700\u8981 3~12 \u4e2a\u5b57\u7b26";
 const TITLE = "\u8bbe\u7f6e\u6635\u79f0";
 const DESCRIPTION = "\u7b2c\u4e00\u6b21\u8fdb\u5165\u9700\u8981\u4e00\u4e2a\u6635\u79f0\uff0c\u7528\u6765\u663e\u793a\u4f60\u7684\u79c1\u4fe1\u3002";
 const PLACEHOLDER = "\u4f8b\u5982\uff1a\u5c0f\u6ce1\u6ce1";
@@ -24,8 +25,8 @@ export function NicknameModal({ onSave }: NicknameModalProps) {
       setError(REQUIRED_ERROR);
       return;
     }
-    if (nextValue.length > 40) {
-      setError(TOO_LONG_ERROR);
+    if (!isNicknameLengthValid(nextValue)) {
+      setError(LENGTH_ERROR);
       return;
     }
     onSave(nextValue);
@@ -43,7 +44,7 @@ export function NicknameModal({ onSave }: NicknameModalProps) {
             setValue(event.target.value);
             setError("");
           }}
-          maxLength={40}
+          maxLength={NICKNAME_MAX_LENGTH}
           className="mt-4 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-slate-500"
           placeholder={PLACEHOLDER}
         />
