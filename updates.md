@@ -20,3 +20,4 @@
 [CodeX][260630182020] add git ignore before uploading project to GitHub
 [CodeX][260630182054] keep Next.js generated type declaration in repository
 [CodeX][260630183817] add nickname 3-12 character validation and user message 300 character send-time limit
+[CodeX][260630185251] 修复新访客首次读取留言次数时把缺失值误判为 0，现在会初始化为 3 次

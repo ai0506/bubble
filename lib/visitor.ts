@@ -50,7 +50,13 @@ export function activateOneYearSubscription() {
 }
 
 export function getRemainingMessages() {
-  const value = Number(window.localStorage.getItem(REMAINING_MESSAGES_KEY));
+  const storedValue = window.localStorage.getItem(REMAINING_MESSAGES_KEY);
+  if (storedValue === null) {
+    window.localStorage.setItem(REMAINING_MESSAGES_KEY, String(INITIAL_MESSAGE_ALLOWANCE));
+    return INITIAL_MESSAGE_ALLOWANCE;
+  }
+
+  const value = Number(storedValue);
   if (!Number.isFinite(value)) {
     window.localStorage.setItem(REMAINING_MESSAGES_KEY, String(INITIAL_MESSAGE_ALLOWANCE));
     return INITIAL_MESSAGE_ALLOWANCE;
