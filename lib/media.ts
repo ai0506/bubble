@@ -1,6 +1,9 @@
 import type { MessageType } from "@/lib/types";
 
-const imageTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const imageTypes = new Set([
+  "image/png", "image/jpeg", "image/webp", "image/gif",
+  "image/heic", "image/heif", "image/avif",
+]);
 const voiceTypes = new Set([
   "audio/mpeg",
   "audio/mp3",
@@ -31,7 +34,14 @@ export function inferMessageType(file: File, requestedType?: FormDataEntryValue 
 
 export function allowedAdminUpload(file: File, type: MessageType) {
   if (type === "gif") return file.type === "image/gif";
-  if (type === "image") return imageTypes.has(file.type) && file.type !== "image/gif";
+  if (type === "image") {
+    if (imageTypes.has(file.type) && file.type !== "image/gif") return true;
+    // image_picker 有时返回 octet-stream，靠扩展名判断
+    if (file.type === "application/octet-stream" || file.type === "") {
+      return /\.(jpe?g|png|webp|heic|heif|avif)$/i.test(file.name);
+    }
+    return false;
+  }
   if (type === "voice") return voiceTypes.has(file.type);
   // 实况：接受 JPEG（含实况）以及任意 octet-stream（文件管理器有时报这个 MIME）
   if (type === "motion") return file.type === "image/jpeg" || file.type === "application/octet-stream" || file.type === "";
