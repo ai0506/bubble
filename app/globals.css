@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #1f2933;
+  background: #eee7dc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(92, 150, 135, 0.18), transparent 32rem),
+    linear-gradient(135deg, #eee7dc 0%, #dfe8e4 100%);
+  color: #1f2933;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+}

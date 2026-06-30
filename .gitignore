@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# production
+build/
+
+# local env files
+.env
+.env*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# local agent/tooling scratch
+.claude/
+.codex-remote-attachments/
