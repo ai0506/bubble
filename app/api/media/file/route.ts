@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
   const isImage = /\.(gif|png|jpe?g|webp)$/i.test(mediaPath);
   const options = width && isImage ? { transform: { width, resize: "contain" as const } } : undefined;
-  const { data, error } = await supabase.storage.from("chat-media").createSignedUrl(mediaPath, 60 * 5, options);
+  const { data, error } = await supabase.storage.from("chat-media").createSignedUrl(mediaPath, 60 * 60, options);
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
@@ -58,7 +58,10 @@ export async function GET(request: NextRequest) {
     const value = mediaResponse.headers.get(key);
     if (value) responseHeaders.set(key, value);
   }
-  responseHeaders.set("Cache-Control", "private, max-age=300");
+  responseHeaders.set(
+    "Cache-Control",
+    isImage ? "private, max-age=604800, immutable" : "private, max-age=86400",
+  );
 
   return new Response(mediaResponse.body, {
     status: mediaResponse.status,

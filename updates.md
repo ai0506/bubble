@@ -29,3 +29,4 @@
 [CodeX][260630223053] Delayed motion photo thumbnail reveal until the preview frame is ready
 [CodeX][260630223831] Hid motion photo video and overlays until thumbnail media is visible
 [CodeX][260630224525] Removed video-frame thumbnail loading from motion photo chat previews
+[CodeX][260630225724] optimize image upload compression, thumbnail loading, media cache, and message rerender behavior

@@ -37,6 +37,22 @@ function getLatestAdminMessageId(messages: ChatMessage[]) {
   return null;
 }
 
+function getMessagesSignature(messages: ChatMessage[]) {
+  return messages
+    .map((message) =>
+      [
+        message.id,
+        message.created_at,
+        message.type,
+        message.content_text || "",
+        message.media_path || "",
+        message.motion_video_path || "",
+        message.is_deleted ? "1" : "0",
+      ].join(":"),
+    )
+    .join("|");
+}
+
 export function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [visitorId, setVisitorId] = useState("");
@@ -59,7 +75,9 @@ export function ChatScreen() {
     });
     if (!response.ok) return;
     const data = (await response.json()) as { messages: ChatMessage[] };
-    setMessages(data.messages);
+    setMessages((currentMessages) =>
+      getMessagesSignature(currentMessages) === getMessagesSignature(data.messages) ? currentMessages : data.messages,
+    );
     setRemainingMessages(syncAllowanceWithLatestAdminMessage(getLatestAdminMessageId(data.messages)));
   }, []);
 
