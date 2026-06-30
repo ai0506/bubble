@@ -27,3 +27,4 @@
 [CodeX][260630221244] replaced the favicon with a GPT Image generated chat-heart app icon
 [CodeX][260630222012] Fixed voice playback exclusivity and stabilized motion photo loading placeholders
 [CodeX][260630223053] Delayed motion photo thumbnail reveal until the preview frame is ready
+[CodeX][260630223831] Hid motion photo video and overlays until thumbnail media is visible

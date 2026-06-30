@@ -151,6 +151,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   // 纯视频实况（没有封面静态图）时，尺寸等 video 元数据加载后再知道
   const motionVideoOnly = isMotion && !message.media_path;
   const imageBoxSize = mediaSize ?? IMAGE_BOX_FALLBACK;
+  const showImageOverlays = !motionVideoOnly || motionThumbReady;
 
   return (
     <div className="px-3 py-1.5">
@@ -184,7 +185,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
                   {motionVideoOnly ? (
                     // 纯视频实况：用 video 冻在第一帧作为缩略图
                     <>
-                      {!motionThumbReady ? <span className="absolute inset-0 block animate-pulse bg-slate-200" /> : null}
+                      {!motionThumbReady ? <span className="absolute inset-0 block bg-slate-200" /> : null}
                       <video
                         src={motionUrl}
                         muted
@@ -199,10 +200,14 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
                           setMotionThumbReady(true);
                           onMediaReady?.();
                         }}
+                        onCanPlay={() => {
+                          setMotionThumbReady(true);
+                          onMediaReady?.();
+                        }}
                         onContextMenu={(event) => event.preventDefault()}
                         draggable={false}
-                        className={`block h-full w-full select-none object-cover transition-opacity ${
-                          motionThumbReady ? "opacity-100" : "opacity-0"
+                        className={`absolute inset-0 h-full w-full select-none object-cover ${
+                          motionThumbReady ? "visible" : "invisible"
                         }`}
                         style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
                       />
@@ -222,10 +227,12 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
                   ) : (
                     <span className="block h-full w-full animate-pulse bg-slate-200" />
                   )}
-                  <span className="pointer-events-none absolute bottom-2 right-2 rounded bg-black/25 px-1.5 py-0.5 text-[11px] font-medium text-white/75 shadow-sm">
-                    {watermarkLabel}
-                  </span>
-                  {isMotion ? (
+                  {showImageOverlays ? (
+                    <span className="pointer-events-none absolute bottom-2 right-2 rounded bg-black/25 px-1.5 py-0.5 text-[11px] font-medium text-white/75 shadow-sm">
+                      {watermarkLabel}
+                    </span>
+                  ) : null}
+                  {isMotion && showImageOverlays ? (
                     <span className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/35 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm backdrop-blur">
                       <Play size={11} className="fill-current" />
                       {LIVE_LABEL}
