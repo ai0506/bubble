@@ -25,3 +25,4 @@
 [CodeX][260630190457] separate admin and received messages with in-page delete confirmation and portrait layout tweaks
 [CodeX][260630220811] added a simple chat-phone SVG favicon and registered it in site metadata
 [CodeX][260630221244] replaced the favicon with a GPT Image generated chat-heart app icon
+[CodeX][260630222012] Fixed voice playback exclusivity and stabilized motion photo loading placeholders

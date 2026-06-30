@@ -6,6 +6,7 @@ import { formatDuration } from "@/lib/dates";
 
 const PLAY_LABEL = "\u64ad\u653e\u8bed\u97f3";
 const PAUSE_LABEL = "\u6682\u505c\u8bed\u97f3";
+const VOICE_PLAY_EVENT = "bubble:voice-play";
 
 const WAVEFORM_BARS = [
   6, 10, 14, 8, 16, 11, 6, 13, 9, 7, 12, 18, 8, 11, 15, 9, 5, 12, 16, 8, 10, 14, 7, 11, 6, 9, 13, 8,
@@ -19,6 +20,7 @@ type VoiceBubbleProps = {
 
 export function VoiceBubble({ url, duration, onReady }: VoiceBubbleProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const instanceIdRef = useRef(`voice-${Math.random().toString(36).slice(2)}`);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [detectedDuration, setDetectedDuration] = useState(duration || 0);
@@ -71,6 +73,20 @@ export function VoiceBubble({ url, duration, onReady }: VoiceBubbleProps) {
     };
   }, [onReady, url]);
 
+  useEffect(() => {
+    function handleOtherVoicePlay(event: Event) {
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      const detail = (event as CustomEvent<{ id?: string }>).detail;
+      if (detail?.id === instanceIdRef.current) return;
+      audio.pause();
+    }
+
+    window.addEventListener(VOICE_PLAY_EVENT, handleOtherVoicePlay);
+    return () => window.removeEventListener(VOICE_PLAY_EVENT, handleOtherVoicePlay);
+  }, []);
+
   async function toggle() {
     const audio = audioRef.current;
     if (!audio) return;
@@ -81,6 +97,7 @@ export function VoiceBubble({ url, duration, onReady }: VoiceBubbleProps) {
     }
 
     try {
+      window.dispatchEvent(new CustomEvent(VOICE_PLAY_EVENT, { detail: { id: instanceIdRef.current } }));
       await audio.play();
       setPlaying(true);
     } catch {
