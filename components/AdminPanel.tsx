@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import {
   AlertTriangle,
   ImageIcon,
@@ -16,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { formatFullTime } from "@/lib/dates";
+import { compressImageForUpload } from "@/lib/clientImageCompression";
 import type { ChatMessage, MessageType } from "@/lib/types";
 
 const TEXT = {
@@ -88,6 +91,7 @@ export function AdminPanel() {
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ChatMessage | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState("");
 
   const receivedMessages = messages.filter((message) => message.sender_kind !== "admin");
   const sentMessages = messages.filter((message) => message.sender_kind === "admin");
@@ -110,6 +114,17 @@ export function AdminPanel() {
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
+
+  useEffect(() => {
+    if (!file || !["image", "gif", "motion"].includes(type)) {
+      setFilePreviewUrl("");
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setFilePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file, type]);
 
   function resetMediaState(nextType?: MessageType) {
     setFile(null);
@@ -153,6 +168,13 @@ export function AdminPanel() {
     setDuration("");
     setDurationStatus(type === "voice" ? TEXT.durationPending : "");
     if (nextFile) readMediaDuration(nextFile);
+  }
+
+  async function getUploadFile(nextFile: File, nextType: MessageType) {
+    if (nextType === "image" || nextType === "motion") {
+      return compressImageForUpload(nextFile);
+    }
+    return nextFile;
   }
 
   async function login(event: React.FormEvent<HTMLFormElement>) {
@@ -200,8 +222,9 @@ export function AdminPanel() {
           setStatus(TEXT.motionNeedBoth);
           return;
         }
+        const uploadFile = await getUploadFile(file, type);
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", uploadFile);
         formData.append("motionVideo", motionVideoFile);
         formData.append("type", "motion");
         formData.append("contentText", text);
@@ -214,8 +237,9 @@ export function AdminPanel() {
           setStatus(TEXT.chooseFile);
           return;
         }
+        const uploadFile = await getUploadFile(file, type);
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", uploadFile);
         formData.append("type", type);
         formData.append("contentText", text);
         if (duration) formData.append("mediaDuration", duration);
@@ -489,6 +513,17 @@ export function AdminPanel() {
                       />
                     </label>
                   )}
+                  {filePreviewUrl ? (
+                    <div className="overflow-hidden rounded-xl bg-slate-100">
+                      <img
+                        src={filePreviewUrl}
+                        alt={TEXT.chooseFile}
+                        width={240}
+                        height={160}
+                        className="max-h-44 w-full object-cover"
+                      />
+                    </div>
+                  ) : null}
                   {type === "voice" ? <p className="px-1 text-xs text-slate-500">{durationStatus}</p> : null}
                 </div>
               ) : null}

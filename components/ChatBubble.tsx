@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import Image from "next/image";
 import { X, User, Play, Pause } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -14,14 +16,7 @@ const CLOSE_PREVIEW_LABEL = "\u5173\u95ed\u56fe\u7247\u9884\u89c8";
 const LIVE_LABEL = "\u5b9e\u51b5"; // \u5b9e\u51b5
 const PLAY_MOTION_LABEL = "\u64ad\u653e\u5b9e\u51b5\u89c6\u9891"; // \u64ad\u653e\u5b9e\u51b5\u89c6\u9891
 const ADMIN_AVATAR_ALT = "asw";
-const IMAGE_BOX_MAX_WIDTH = 260;
-const IMAGE_BOX_MAX_HEIGHT = 288;
-const IMAGE_BOX_FALLBACK = { width: 260, height: 180 };
-
-type MediaSize = {
-  width: number;
-  height: number;
-};
+const IMAGE_BOX_SIZE = { width: 240, height: 180 };
 
 type ChatBubbleProps = {
   message: ChatMessage;
@@ -52,7 +47,6 @@ function AdminAvatar() {
 
 export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProps) {
   const [mediaUrl, setMediaUrl] = useState("");
-  const [mediaSize, setMediaSize] = useState<MediaSize | null>(null);
   const [motionUrl, setMotionUrl] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [motionPlaying, setMotionPlaying] = useState(false);
@@ -65,18 +59,15 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
     async function loadMedia() {
       if (!message.media_path) {
         setMediaUrl("");
-        setMediaSize(null);
         return;
       }
 
       const isStillImage = message.type === "image" || message.type === "gif" || message.type === "motion";
-      const mediaWidth = isStillImage ? "520" : "";
+      const mediaWidth = isStillImage ? String(IMAGE_BOX_SIZE.width * 2) : "";
       const params = new URLSearchParams({ mediaPath: message.media_path });
       if (mediaWidth) params.set("width", mediaWidth);
       if (!cancelled) {
         setMediaUrl(`/api/media/file?${params.toString()}`);
-        setMediaSize(null);
-        window.requestAnimationFrame(() => onMediaReady?.());
       }
     }
 
@@ -85,34 +76,6 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
       cancelled = true;
     };
   }, [message.media_path, message.type, onMediaReady]);
-
-  useEffect(() => {
-    const isStillImage = message.type === "image" || message.type === "gif" || message.type === "motion";
-    if (!mediaUrl || !isStillImage) return;
-
-    let cancelled = false;
-    const probe = new window.Image();
-    probe.onload = () => {
-      if (cancelled) return;
-
-      const naturalWidth = probe.naturalWidth || IMAGE_BOX_FALLBACK.width;
-      const naturalHeight = probe.naturalHeight || IMAGE_BOX_FALLBACK.height;
-      const scale = Math.min(IMAGE_BOX_MAX_WIDTH / naturalWidth, IMAGE_BOX_MAX_HEIGHT / naturalHeight, 1);
-      setMediaSize({
-        width: Math.round(naturalWidth * scale),
-        height: Math.round(naturalHeight * scale),
-      });
-      window.requestAnimationFrame(() => onMediaReady?.());
-    };
-    probe.onerror = () => {
-      if (!cancelled) setMediaSize(IMAGE_BOX_FALLBACK);
-    };
-    probe.src = mediaUrl;
-
-    return () => {
-      cancelled = true;
-    };
-  }, [mediaUrl, message.type, onMediaReady]);
 
   useEffect(() => {
     if (message.type !== "motion" || !message.motion_video_path) {
@@ -148,7 +111,6 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   const watermarkLabel = `@${watermarkName}`;
   // 纯视频实况（没有封面静态图）时，尺寸等 video 元数据加载后再知道
   const motionVideoOnly = isMotion && !message.media_path;
-  const imageBoxSize = mediaSize ?? IMAGE_BOX_FALLBACK;
 
   return (
     <div className="px-3 py-1.5">
@@ -176,7 +138,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
                   onClick={() => setPreviewOpen(true)}
                   onContextMenu={(event) => event.preventDefault()}
                   className={`relative block overflow-hidden rounded-2xl shadow-sm ${cornerClass}`}
-                  style={{ width: imageBoxSize.width, height: imageBoxSize.height }}
+                  style={{ width: IMAGE_BOX_SIZE.width, height: IMAGE_BOX_SIZE.height, maxWidth: "240px" }}
                   aria-label={PREVIEW_ALT}
                 >
                   {motionVideoOnly ? (
@@ -186,20 +148,19 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
                         <Play size={22} className="fill-current" />
                       </span>
                     </span>
-                  ) : mediaSize ? (
-                    <Image
+                  ) : (
+                    <img
                       src={mediaUrl}
                       alt={IMAGE_ALT}
-                      width={imageBoxSize.width}
-                      height={imageBoxSize.height}
-                      unoptimized
+                      width={IMAGE_BOX_SIZE.width}
+                      height={IMAGE_BOX_SIZE.height}
+                      loading="lazy"
+                      decoding="async"
                       onLoad={onMediaReady}
                       draggable={false}
                       className="block h-full w-full select-none object-cover"
                       style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
                     />
-                  ) : (
-                    <span className="block h-full w-full animate-pulse bg-slate-200" />
                   )}
                   {!motionVideoOnly ? (
                     <span className="pointer-events-none absolute bottom-2 right-2 rounded bg-black/25 px-1.5 py-0.5 text-[11px] font-medium text-white/75 shadow-sm">
@@ -216,7 +177,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
               ) : (
                 <div
                   className={`animate-pulse rounded-2xl bg-slate-200 ${cornerClass}`}
-                  style={{ width: imageBoxSize.width, height: imageBoxSize.height }}
+                  style={{ width: IMAGE_BOX_SIZE.width, height: IMAGE_BOX_SIZE.height, maxWidth: "240px" }}
                 />
               )}
 
@@ -264,12 +225,13 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
                           style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
                         />
                       ) : mediaUrl ? (
-                        <Image
+                        <img
                           src={mediaUrl}
                           alt={PREVIEW_ALT}
                           width={1200}
                           height={900}
-                          unoptimized
+                          loading="eager"
+                          decoding="async"
                           draggable={false}
                           className="block max-h-[calc(100vh-9rem)] w-auto max-w-full select-none object-contain"
                           style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
