@@ -189,11 +189,13 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
                         src={motionUrl}
                         muted
                         playsInline
-                        preload="metadata"
+                        preload="auto"
                         disablePictureInPicture
                         controlsList="nodownload nofullscreen noremoteplayback"
-                        onLoadedData={(event) => {
+                        onLoadedMetadata={(event) => {
                           event.currentTarget.currentTime = 0.001;
+                        }}
+                        onSeeked={() => {
                           setMotionThumbReady(true);
                           onMediaReady?.();
                         }}

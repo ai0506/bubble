@@ -26,3 +26,4 @@
 [CodeX][260630220811] added a simple chat-phone SVG favicon and registered it in site metadata
 [CodeX][260630221244] replaced the favicon with a GPT Image generated chat-heart app icon
 [CodeX][260630222012] Fixed voice playback exclusivity and stabilized motion photo loading placeholders
+[CodeX][260630223053] Delayed motion photo thumbnail reveal until the preview frame is ready
