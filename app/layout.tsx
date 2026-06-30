@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: process.env.NEXT_PUBLIC_SITE_NAME || "asw\u7684Bubble",
   description: "A playful phone-style private subscription chat MVP.",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export const viewport: Viewport = {

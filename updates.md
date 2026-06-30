@@ -23,3 +23,6 @@
 [CodeX][260630185251] 修复新访客首次读取留言次数时把缺失值误判为 0，现在会初始化为 3 次
 [CodeX][260630185842] optimize admin interface with responsive desktop and mobile layouts
 [CodeX][260630190457] separate admin and received messages with in-page delete confirmation and portrait layout tweaks
+[CodeX][260630220811] added a simple chat-phone SVG favicon and registered it in site metadata
+[CodeX][260630221244] replaced the favicon with a GPT Image generated chat-heart app icon
+[CodeX][260630222012] Fixed voice playback exclusivity and stabilized motion photo loading placeholders

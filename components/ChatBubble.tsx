@@ -56,6 +56,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   const [motionUrl, setMotionUrl] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [motionPlaying, setMotionPlaying] = useState(false);
+  const [motionThumbReady, setMotionThumbReady] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const isUser = message.sender_kind === "user";
 
@@ -115,6 +116,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   }, [mediaUrl, message.type, onMediaReady]);
 
   useEffect(() => {
+    setMotionThumbReady(false);
     if (message.type !== "motion" || !message.motion_video_path) {
       setMotionUrl("");
       return;
@@ -176,27 +178,33 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
                   onClick={() => setPreviewOpen(true)}
                   onContextMenu={(event) => event.preventDefault()}
                   className={`relative block overflow-hidden rounded-2xl shadow-sm ${cornerClass}`}
-                  style={motionVideoOnly ? undefined : { width: imageBoxSize.width, height: imageBoxSize.height }}
+                  style={{ width: imageBoxSize.width, height: imageBoxSize.height }}
                   aria-label={PREVIEW_ALT}
                 >
                   {motionVideoOnly ? (
                     // 纯视频实况：用 video 冻在第一帧作为缩略图
-                    <video
-                      src={motionUrl}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      disablePictureInPicture
-                      controlsList="nodownload nofullscreen noremoteplayback"
-                      onLoadedMetadata={(event) => {
-                        event.currentTarget.currentTime = 0.001;
-                        onMediaReady?.();
-                      }}
-                      onContextMenu={(event) => event.preventDefault()}
-                      draggable={false}
-                      className="block h-auto max-h-72 w-[260px] select-none object-cover"
-                      style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
-                    />
+                    <>
+                      {!motionThumbReady ? <span className="absolute inset-0 block animate-pulse bg-slate-200" /> : null}
+                      <video
+                        src={motionUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        disablePictureInPicture
+                        controlsList="nodownload nofullscreen noremoteplayback"
+                        onLoadedData={(event) => {
+                          event.currentTarget.currentTime = 0.001;
+                          setMotionThumbReady(true);
+                          onMediaReady?.();
+                        }}
+                        onContextMenu={(event) => event.preventDefault()}
+                        draggable={false}
+                        className={`block h-full w-full select-none object-cover transition-opacity ${
+                          motionThumbReady ? "opacity-100" : "opacity-0"
+                        }`}
+                        style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+                      />
+                    </>
                   ) : mediaSize ? (
                     <Image
                       src={mediaUrl}
