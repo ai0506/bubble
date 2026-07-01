@@ -143,7 +143,14 @@ export function IdolConsole() {
 
   async function upload(formData: FormData) {
     const response = await fetch("/api/idol/upload", { method: "POST", body: formData });
-    if (!response.ok) throw new Error("upload failed");
+    if (!response.ok) {
+      const detail = await response
+        .clone()
+        .json()
+        .then((data) => (data as { error?: string }).error)
+        .catch(() => "");
+      throw new Error(detail || "upload failed");
+    }
     await loadMessages();
   }
 
