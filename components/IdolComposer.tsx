@@ -109,8 +109,8 @@ export function IdolComposer({ disabled, onSendText, onUpload }: IdolComposerPro
     try {
       await onSendText(value);
       setText("");
-    } catch {
-      setError("发送失败");
+    } catch (error) {
+      setError(error instanceof Error && error.message ? error.message : "发送失败");
     } finally {
       setBusy(false);
     }
@@ -144,8 +144,8 @@ export function IdolComposer({ disabled, onSendText, onUpload }: IdolComposerPro
       await onUpload(formData);
       setText("");
       resetMedia();
-    } catch {
-      setError("发送失败");
+    } catch (error) {
+      setError(error instanceof Error && error.message ? error.message : "发送失败");
     } finally {
       setBusy(false);
     }

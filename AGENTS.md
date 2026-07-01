@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 ## 项目概述
 
@@ -126,3 +126,5 @@ await client.end();
 
 - 如果 `updates.md` 不存在，就创建它。
 - 当用户要求“检查 updates”或类似说法时，读取并汇报 `updates.md`。
+
+- GitHub upload workflow: when the user asks to upload to GitHub, run the necessary checks first (at least lint; run build when build risk is involved). If checks pass, automatically commit, push, create a PR, and merge it when GitHub reports it is mergeable.
