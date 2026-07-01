@@ -141,15 +141,92 @@ export function IdolConsole() {
     await loadMessages();
   }
 
+  async function readApiError(response: Response, fallback: string) {
+    const detail = await response
+      .clone()
+      .json()
+      .then((data) => (data as { error?: string }).error)
+      .catch(async () => {
+        const text = await response.text().catch(() => "");
+        return text.trim().slice(0, 240);
+      });
+    return detail || fallback;
+  }
+
+  async function putSignedObject(url: string, file: File, contentType: string) {
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: file,
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(detail.trim().slice(0, 240) || `upload failed (${response.status})`);
+    }
+  }
+
+  async function uploadMotionDirect(formData: FormData) {
+    const file = formData.get("file");
+    const motionVideo = formData.get("motionVideo");
+    if (!(file instanceof File) || !(motionVideo instanceof File)) {
+      throw new Error("实况照片需要同时选择封面图和动态视频");
+    }
+
+    const stillContentType = file.type || "image/jpeg";
+    const videoContentType = motionVideo.type || "video/mp4";
+    const presignResponse = await fetch("/api/idol/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "motion",
+        filename: file.name,
+        contentType: stillContentType,
+        motionVideoFilename: motionVideo.name,
+        motionVideoContentType: videoContentType,
+      }),
+    });
+    if (!presignResponse.ok) {
+      throw new Error(await readApiError(presignResponse, "create upload url failed"));
+    }
+
+    const presign = (await presignResponse.json()) as {
+      stillUrl?: string;
+      stillPath?: string;
+      videoUrl?: string;
+      videoPath?: string;
+    };
+    if (!presign.stillUrl || !presign.stillPath || !presign.videoUrl || !presign.videoPath) {
+      throw new Error("upload url missing");
+    }
+
+    await putSignedObject(presign.stillUrl, file, stillContentType);
+    await putSignedObject(presign.videoUrl, motionVideo, videoContentType);
+
+    const recordResponse = await fetch("/api/idol/record", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "motion",
+        mediaPath: presign.stillPath,
+        motionVideoPath: presign.videoPath,
+        contentText: String(formData.get("contentText") || ""),
+      }),
+    });
+    if (!recordResponse.ok) {
+      throw new Error(await readApiError(recordResponse, "record upload failed"));
+    }
+  }
+
   async function upload(formData: FormData) {
+    if (formData.get("type") === "motion") {
+      await uploadMotionDirect(formData);
+      await loadMessages();
+      return;
+    }
+
     const response = await fetch("/api/idol/upload", { method: "POST", body: formData });
     if (!response.ok) {
-      const detail = await response
-        .clone()
-        .json()
-        .then((data) => (data as { error?: string }).error)
-        .catch(() => "");
-      throw new Error(detail || "upload failed");
+      throw new Error(await readApiError(response, "upload failed"));
     }
     await loadMessages();
   }

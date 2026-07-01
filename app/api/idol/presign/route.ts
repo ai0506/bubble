@@ -11,13 +11,17 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => null)) as {
     filename?: string;
+    contentType?: string;
     type?: string;
     motionVideoFilename?: string;
+    motionVideoContentType?: string;
   } | null;
 
   const filename = body?.filename ?? "file";
+  const contentType = body?.contentType;
   const type = body?.type ?? "image";
   const motionVideoFilename = body?.motionVideoFilename;
+  const motionVideoContentType = body?.motionVideoContentType;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -31,8 +35,8 @@ export async function POST(request: NextRequest) {
     let stillUrl: string;
     let videoUrl: string;
     try {
-      stillUrl = await createSignedUploadUrl(stillPath, 60 * 10);
-      videoUrl = await createSignedUploadUrl(videoPath, 60 * 10);
+      stillUrl = await createSignedUploadUrl(stillPath, 60 * 10, contentType);
+      videoUrl = await createSignedUploadUrl(videoPath, 60 * 10, motionVideoContentType);
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "Create signed upload URL failed" }, { status: 500 });
     }
@@ -45,7 +49,7 @@ export async function POST(request: NextRequest) {
 
   let url: string;
   try {
-    url = await createSignedUploadUrl(path, 60 * 10);
+    url = await createSignedUploadUrl(path, 60 * 10, contentType);
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Create signed upload URL failed" }, { status: 500 });
   }
