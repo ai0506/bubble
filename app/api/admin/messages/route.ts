@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { resolveWritableIdolId } from "@/lib/idols";
+import { deleteObjects } from "@/lib/objectStorage";
 import { isMissingMessagesTable } from "@/lib/supabaseErrors";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { MessageType } from "@/lib/types";
@@ -107,9 +108,10 @@ export async function DELETE(request: NextRequest) {
       (path): path is string => Boolean(path),
     );
     if (paths.length > 0) {
-      const { error: removeError } = await supabase.storage.from("chat-media").remove(paths);
-      if (removeError) {
-        return Response.json({ error: removeError.message }, { status: 500 });
+      try {
+        await deleteObjects(paths);
+      } catch (error) {
+        return Response.json({ error: error instanceof Error ? error.message : "Delete media failed" }, { status: 500 });
       }
     }
   }

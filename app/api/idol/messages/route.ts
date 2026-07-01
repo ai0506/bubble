@@ -1,4 +1,5 @@
 import { requireIdol } from "@/lib/idolAuth";
+import { deleteObjects } from "@/lib/objectStorage";
 import { isMissingMessagesTable } from "@/lib/supabaseErrors";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -99,9 +100,10 @@ export async function DELETE(request: Request) {
     (path): path is string => Boolean(path),
   );
   if (paths.length > 0) {
-    const { error: removeError } = await supabase.storage.from("chat-media").remove(paths);
-    if (removeError) {
-      return Response.json({ error: removeError.message }, { status: 500 });
+    try {
+      await deleteObjects(paths);
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Delete media failed" }, { status: 500 });
     }
   }
 

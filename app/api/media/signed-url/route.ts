@@ -1,4 +1,5 @@
 import { isMissingMessagesTable } from "@/lib/supabaseErrors";
+import { createSignedReadUrl } from "@/lib/objectStorage";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(request: Request) {
@@ -38,13 +39,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "Media not found" }, { status: 404 });
   }
 
-  const isImage = /\.(gif|png|jpe?g|webp)$/i.test(mediaPath);
-  const options = width && isImage ? { transform: { width, resize: "contain" as const } } : undefined;
-  const { data, error } = await supabase.storage.from("chat-media").createSignedUrl(mediaPath, 60 * 10, options);
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+  try {
+    const url = await createSignedReadUrl({
+      key: mediaPath,
+      expiresInSeconds: 60 * 10,
+      contentTypeHint: width ? "image" : undefined,
+    });
+    return Response.json({ url });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "Create signed URL failed" }, { status: 500 });
   }
-
-  return Response.json({ url: data.signedUrl });
 }

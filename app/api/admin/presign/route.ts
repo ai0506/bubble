@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { extensionFromName } from "@/lib/media";
+import { createSignedUploadUrl } from "@/lib/objectStorage";
 
 export async function POST(request: NextRequest) {
   const unauthorized = await requireAdmin();
@@ -18,7 +18,6 @@ export async function POST(request: NextRequest) {
   const type = body?.type ?? "image";
   const motionVideoFilename = body?.motionVideoFilename;
 
-  const supabase = getSupabaseAdmin();
   const today = new Date().toISOString().slice(0, 10);
 
   if (type === "motion") {
@@ -28,20 +27,19 @@ export async function POST(request: NextRequest) {
     const stillPath = `${base}.${stillExt}`;
     const videoPath = `${base}_video.${videoExt}`;
 
-    const { data: stillData, error: stillErr } = await supabase.storage
-      .from("chat-media")
-      .createSignedUploadUrl(stillPath);
-    if (stillErr) return Response.json({ error: stillErr.message }, { status: 500 });
-
-    const { data: videoData, error: videoErr } = await supabase.storage
-      .from("chat-media")
-      .createSignedUploadUrl(videoPath);
-    if (videoErr) return Response.json({ error: videoErr.message }, { status: 500 });
+    let stillUrl: string;
+    let videoUrl: string;
+    try {
+      stillUrl = await createSignedUploadUrl(stillPath, 60 * 10);
+      videoUrl = await createSignedUploadUrl(videoPath, 60 * 10);
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Create signed upload URL failed" }, { status: 500 });
+    }
 
     return Response.json({
-      stillUrl: stillData.signedUrl,
+      stillUrl,
       stillPath,
-      videoUrl: videoData.signedUrl,
+      videoUrl,
       videoPath,
     });
   }
@@ -49,10 +47,12 @@ export async function POST(request: NextRequest) {
   const ext = extensionFromName(filename) || "bin";
   const path = `${type}/${today}/${randomUUID()}.${ext}`;
 
-  const { data, error } = await supabase.storage
-    .from("chat-media")
-    .createSignedUploadUrl(path);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  let url: string;
+  try {
+    url = await createSignedUploadUrl(path, 60 * 10);
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "Create signed upload URL failed" }, { status: 500 });
+  }
 
-  return Response.json({ url: data.signedUrl, path });
+  return Response.json({ url, path });
 }

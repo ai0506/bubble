@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { isMissingMessagesTable } from "@/lib/supabaseErrors";
+import { createSignedReadUrl } from "@/lib/objectStorage";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET(request: NextRequest) {
@@ -41,18 +42,22 @@ export async function GET(request: NextRequest) {
   }
 
   const isImage = /\.(gif|png|jpe?g|webp)$/i.test(mediaPath);
-  const options = width && isImage ? { transform: { width, resize: "contain" as const } } : undefined;
-  const { data, error } = await supabase.storage.from("chat-media").createSignedUrl(mediaPath, 60 * 60, options);
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+  let signedUrl: string;
+  try {
+    signedUrl = await createSignedReadUrl({
+      key: mediaPath,
+      expiresInSeconds: 60 * 60,
+      contentTypeHint: width && isImage ? "image" : undefined,
+    });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "Create signed URL failed" }, { status: 500 });
   }
 
   const headers = new Headers();
   const range = request.headers.get("range");
   if (range) headers.set("range", range);
 
-  const mediaResponse = await fetch(data.signedUrl, { headers });
+  const mediaResponse = await fetch(signedUrl, { headers });
   const responseHeaders = new Headers();
   for (const key of ["content-type", "content-length", "content-range", "accept-ranges", "cache-control"]) {
     const value = mediaResponse.headers.get(key);
