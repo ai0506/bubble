@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
+import { useState } from "react";
 import type { Idol } from "@/lib/types";
 
 const DEFAULT_SITE_NAME = "asw的Bubble";
@@ -14,12 +15,28 @@ type IdolDiscoveryProps = {
   onSelect: (handle: string) => void;
 };
 
-function Avatar({ name }: { name: string }) {
-  const initial = name.trim().slice(0, 1) || "?";
+/* eslint-disable @next/next/no-img-element */
+function Avatar({ idol }: { idol: Idol }) {
+  const [errored, setErrored] = useState(false);
+  const initial = idol.display_name.trim().slice(0, 1) || "?";
+
+  if (!idol.avatar_path || errored) {
+    return (
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-base font-semibold text-slate-600">
+        {initial}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-200 text-base font-semibold text-slate-600">
-      {initial}
-    </div>
+    <img
+      src={`/api/media/avatar?idolId=${idol.id}`}
+      alt={idol.display_name}
+      width={44}
+      height={44}
+      className="h-11 w-11 shrink-0 rounded-full bg-slate-200 object-cover"
+      onError={() => setErrored(true)}
+    />
   );
 }
 
@@ -45,7 +62,7 @@ export function IdolDiscovery({ idols, loading, onSelect }: IdolDiscoveryProps) 
               onClick={() => onSelect(idol.handle)}
               className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm transition active:scale-[0.99]"
             >
-              <Avatar name={idol.display_name} />
+              <Avatar idol={idol} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-slate-800">{idol.display_name}</p>
                 <p className="truncate text-xs text-slate-500">{idol.bio || `@${idol.handle}`}</p>

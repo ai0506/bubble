@@ -2,7 +2,6 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import Image from "next/image";
 import { X, User, Play, Pause } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { VoiceBubble } from "@/components/VoiceBubble";
@@ -15,7 +14,7 @@ const PREVIEW_ALT = "\u653e\u5927\u67e5\u770b\u804a\u5929\u56fe\u7247";
 const CLOSE_PREVIEW_LABEL = "\u5173\u95ed\u56fe\u7247\u9884\u89c8";
 const LIVE_LABEL = "\u5b9e\u51b5"; // \u5b9e\u51b5
 const PLAY_MOTION_LABEL = "\u64ad\u653e\u5b9e\u51b5\u89c6\u9891"; // \u64ad\u653e\u5b9e\u51b5\u89c6\u9891
-const ADMIN_AVATAR_ALT = "asw";
+const ADMIN_AVATAR_ALT = "\u7231\u8c46\u5934\u50cf"; // \u7231\u8c46\u5934\u50cf
 const IMAGE_BOX_SIZE = { width: 240, height: 180 };
 
 type ChatBubbleProps = {
@@ -34,15 +33,25 @@ function UserAvatar() {
   );
 }
 
-function AdminAvatar() {
+function AdminAvatar({ idolId }: { idolId: string }) {
+  const [errored, setErrored] = useState(false);
+
+  if (!idolId || errored) {
+    return (
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white">
+        <User size={17} />
+      </div>
+    );
+  }
+
   return (
-    <Image
-      src="/profile_image.webp"
+    <img
+      src={`/api/media/avatar?idolId=${idolId}`}
       alt={ADMIN_AVATAR_ALT}
       width={32}
       height={32}
-      className="h-8 w-8 shrink-0 rounded-full object-cover"
-      priority
+      className="h-8 w-8 shrink-0 rounded-full bg-slate-200 object-cover"
+      onError={() => setErrored(true)}
     />
   );
 }
@@ -155,7 +164,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
   return (
     <div className="px-3 py-1.5">
       <div className={`flex items-end gap-2 ${justifyClass}`}>
-        {!isSelf ? (message.sender_kind === "admin" ? <AdminAvatar /> : <UserAvatar />) : null}
+        {!isSelf ? (message.sender_kind === "admin" ? <AdminAvatar idolId={message.idol_id} /> : <UserAvatar />) : null}
         <div className={`flex max-w-[76%] flex-col ${isSelf ? "items-end" : "items-start"}`}>
           {isFan ? <span className="mb-1 px-1 text-[11px] text-slate-500">{message.nickname || ME_LABEL}</span> : null}
 
@@ -343,7 +352,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
             </div>
           ) : null}
         </div>
-        {isSelf ? (message.sender_kind === "admin" ? <AdminAvatar /> : <UserAvatar />) : null}
+        {isSelf ? (message.sender_kind === "admin" ? <AdminAvatar idolId={message.idol_id} /> : <UserAvatar />) : null}
       </div>
       <div className={`mt-1 flex ${justifyClass} ${isSelf ? "pr-10" : "pl-10"}`}>
         <span className="px-1 text-[11px] text-slate-400">{formatClock(message.created_at)}</span>

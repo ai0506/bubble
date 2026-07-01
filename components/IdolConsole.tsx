@@ -1,6 +1,8 @@
 "use client";
 
-import { LogOut, Mic2, RefreshCw, Trash2, X } from "lucide-react";
+/* eslint-disable @next/next/no-img-element */
+
+import { LogOut, Mic2, Pencil, RefreshCw, Trash2, User, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChatBubble } from "@/components/ChatBubble";
 import { DateDivider } from "@/components/DateDivider";
@@ -20,11 +22,18 @@ const TEXT = {
   empty: "还没有消息，发一条试试",
   refresh: "刷新",
   logout: "退出",
+  editProfile: "编辑资料",
   deleteTitle: "确认删除这条消息？",
   deleteBody: "删除后会同时移除数据库记录和媒体文件，不可撤回。",
   cancel: "取消",
   confirmDelete: "确认删除",
   deleteMessage: "删除消息",
+  profileTitle: "编辑资料",
+  displayNameLabel: "显示名",
+  avatarLabel: "头像",
+  changeAvatar: "更换头像",
+  save: "保存",
+  saveFailed: "保存失败",
 };
 
 export function IdolConsole() {
@@ -37,6 +46,13 @@ export function IdolConsole() {
   const [loginError, setLoginError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ChatMessage | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileDisplayName, setProfileDisplayName] = useState("");
+  const [profileAvatarFile, setProfileAvatarFile] = useState<File | null>(null);
+  const [profileAvatarPreview, setProfileAvatarPreview] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [avatarVersion, setAvatarVersion] = useState(0);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -131,6 +147,54 @@ export function IdolConsole() {
     await loadMessages();
   }
 
+  function openEditProfile() {
+    setProfileDisplayName(idol?.display_name || "");
+    setProfileAvatarFile(null);
+    setProfileAvatarPreview("");
+    setProfileError("");
+    setEditingProfile(true);
+  }
+
+  function pickAvatar(file: File | null) {
+    setProfileAvatarFile(file);
+    setProfileAvatarPreview(file ? URL.createObjectURL(file) : "");
+  }
+
+  async function saveProfile() {
+    const displayName = profileDisplayName.trim();
+    if (!displayName && !profileAvatarFile) {
+      setEditingProfile(false);
+      return;
+    }
+    setProfileBusy(true);
+    setProfileError("");
+    try {
+      const formData = new FormData();
+      if (displayName && displayName !== idol?.display_name) formData.append("displayName", displayName);
+      if (profileAvatarFile) formData.append("avatar", profileAvatarFile);
+      if ([...formData.keys()].length === 0) {
+        setEditingProfile(false);
+        return;
+      }
+      const response = await fetch("/api/idol/profile", { method: "PATCH", body: formData });
+      if (!response.ok) {
+        const detail = await response
+          .clone()
+          .json()
+          .then((d) => (d as { error?: string }).error)
+          .catch(() => "");
+        setProfileError(detail || TEXT.saveFailed);
+        return;
+      }
+      const data = (await response.json()) as { idol: Idol };
+      setIdol(data.idol);
+      if (profileAvatarFile) setAvatarVersion((v) => v + 1);
+      setEditingProfile(false);
+    } finally {
+      setProfileBusy(false);
+    }
+  }
+
   async function confirmDelete() {
     if (!pendingDelete) return;
     setBusy(true);
@@ -203,11 +267,35 @@ export function IdolConsole() {
     <div className="relative flex min-h-0 flex-1 flex-col">
       <header className="shrink-0 border-b border-black/5 bg-white/85 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold">{idol?.display_name}</h1>
-            <p className="text-xs text-slate-500">@{idol?.handle}</p>
-          </div>
-          <div className="flex gap-2">
+          <button type="button" onClick={openEditProfile} className="flex min-w-0 items-center gap-2 text-left">
+            {idol?.avatar_path ? (
+              <img
+                src={`/api/media/avatar?idolId=${idol.id}&v=${avatarVersion}`}
+                alt={idol.display_name}
+                width={36}
+                height={36}
+                className="h-9 w-9 shrink-0 rounded-full bg-slate-200 object-cover"
+              />
+            ) : (
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white">
+                <User size={17} />
+              </span>
+            )}
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold">{idol?.display_name}</h1>
+              <p className="text-xs text-slate-500">@{idol?.handle}</p>
+            </div>
+          </button>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={openEditProfile}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+              aria-label={TEXT.editProfile}
+              title={TEXT.editProfile}
+            >
+              <Pencil size={16} />
+            </button>
             <button
               type="button"
               onClick={() => void loadMessages()}
@@ -296,6 +384,74 @@ export function IdolConsole() {
               >
                 <Trash2 size={16} />
                 {TEXT.confirmDelete}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editingProfile ? (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-5">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-base font-semibold">{TEXT.profileTitle}</h2>
+              <button
+                type="button"
+                onClick={() => setEditingProfile(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+                aria-label={TEXT.cancel}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <label className="relative flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-slate-200">
+                {profileAvatarPreview || idol?.avatar_path ? (
+                  <img
+                    src={profileAvatarPreview || `/api/media/avatar?idolId=${idol?.id}&v=${avatarVersion}`}
+                    alt={TEXT.avatarLabel}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <User size={28} className="text-slate-500" />
+                )}
+                <span className="absolute inset-x-0 bottom-0 bg-black/45 py-1 text-center text-[10px] text-white">
+                  {TEXT.changeAvatar}
+                </span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(event) => pickAvatar(event.target.files?.[0] || null)}
+                />
+              </label>
+            </div>
+
+            <label className="mt-4 block text-xs font-medium text-slate-500">{TEXT.displayNameLabel}</label>
+            <input
+              value={profileDisplayName}
+              onChange={(event) => setProfileDisplayName(event.target.value)}
+              className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-slate-500"
+            />
+
+            {profileError ? <p className="mt-2 text-sm text-rose-600">{profileError}</p> : null}
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingProfile(false)}
+                className="h-11 rounded-full bg-slate-100 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                {TEXT.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveProfile()}
+                disabled={profileBusy || !profileDisplayName.trim()}
+                className="h-11 rounded-full bg-ink text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-300"
+              >
+                {TEXT.save}
               </button>
             </div>
           </div>
