@@ -40,3 +40,6 @@
 [CodeX][260701154650] added and ran OSS migration script to copy existing Supabase Storage media objects to Alibaba Cloud OSS
 [CodeX][260701160734] changed chat media rendering to load direct signed OSS URLs so locally sent photos are visible outside localhost
 [CodeX][260701161743] changed media file route to redirect to OSS signed URLs and log detailed OSS signing errors
+[CodeX][260701193254] 修复订阅有效期显示读取真实过期时间
+[CodeX][260701194648] 动态照片预览在暂停和播放结束时回到封面图
+[CodeX][260701194945] 为动态照片预览增加加载状态和转圈动画

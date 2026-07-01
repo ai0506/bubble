@@ -15,12 +15,12 @@ import {
   getNickname,
   getOrCreateVisitorId,
   getRemainingMessages,
+  getSubscriptionExpiresAt,
   isSubscriptionActive,
   setNickname as saveNickname,
   syncAllowanceWithLatestAdminMessage,
 } from "@/lib/visitor";
 
-const SUBSCRIBED_LABEL = "\u8ba2\u9605\u6709\u6548\u81f32027-06-30";
 const UNSUBSCRIBED_LABEL = "\u672a\u8ba2\u9605";
 const REFRESH_LABEL = "\u5237\u65b0\u6d88\u606f";
 const BACK_LABEL = "\u8fd4\u56de\u7231\u8c46\u5217\u8868"; // \u8fd4\u56de\u7231\u8c46\u5217\u8868
@@ -53,6 +53,18 @@ function getMessagesSignature(messages: ChatMessage[]) {
     .join("|");
 }
 
+function formatSubscriptionExpiresLabel(expiresAt: string | null) {
+  if (!expiresAt) return UNSUBSCRIBED_LABEL;
+
+  const date = new Date(expiresAt);
+  if (!Number.isFinite(date.getTime())) return UNSUBSCRIBED_LABEL;
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `\u8ba2\u9605\u6709\u6548\u81f3${year}-${month}-${day}`;
+}
+
 type ChatScreenProps = {
   idol: Pick<Idol, "id" | "handle" | "display_name">;
   onBack: () => void;
@@ -64,6 +76,7 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
   const [visitorId, setVisitorId] = useState("");
   const [nickname, setNickname] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [remainingMessages, setRemainingMessages] = useState(3);
   const [loading, setLoading] = useState(true);
@@ -95,6 +108,7 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
     const id = getOrCreateVisitorId();
     setVisitorId(id);
     setNickname(getNickname());
+    setSubscriptionExpiresAt(getSubscriptionExpiresAt(idolId));
     setSubscribed(isSubscriptionActive(idolId));
     setRemainingMessages(getRemainingMessages(idolId));
     setInitialized(true);
@@ -140,7 +154,8 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
   }
 
   function handleSubscribe() {
-    activateOneYearSubscription(idolId);
+    const expiresAt = activateOneYearSubscription(idolId);
+    setSubscriptionExpiresAt(expiresAt);
     setSubscribed(true);
   }
 
@@ -162,7 +177,7 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
             <div className="min-w-0">
               <h1 className="truncate text-base font-semibold">{idol.display_name}</h1>
               <p className="text-xs text-slate-500">
-              {!initialized ? " " : subscribed ? SUBSCRIBED_LABEL : UNSUBSCRIBED_LABEL}
+                {!initialized ? " " : subscribed ? formatSubscriptionExpiresLabel(subscriptionExpiresAt) : UNSUBSCRIBED_LABEL}
               </p>
             </div>
           </div>
