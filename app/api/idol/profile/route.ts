@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { requireIdol } from "@/lib/idolAuth";
 import { extensionFromName } from "@/lib/media";
+import { deleteObjects, uploadObject } from "@/lib/objectStorage";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 const SELECT_FIELDS = "id, handle, display_name, avatar_path, bio, is_active, created_at";
@@ -30,11 +31,10 @@ export async function PATCH(request: Request) {
     }
     const extension = extensionFromName(avatarFile.name) || "jpg";
     uploadedPath = `avatars/${idolId}/${randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage
-      .from("chat-media")
-      .upload(uploadedPath, avatarFile, { contentType: avatarFile.type, upsert: false });
-    if (uploadError) {
-      return Response.json({ error: uploadError.message }, { status: 500 });
+    try {
+      await uploadObject({ key: uploadedPath, file: avatarFile, contentType: avatarFile.type });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Upload failed" }, { status: 500 });
     }
     updates.avatar_path = uploadedPath;
   }
@@ -57,13 +57,13 @@ export async function PATCH(request: Request) {
     .single();
 
   if (error) {
-    if (uploadedPath) await supabase.storage.from("chat-media").remove([uploadedPath]);
+    if (uploadedPath) await deleteObjects([uploadedPath]).catch(() => undefined);
     return Response.json({ error: error.message }, { status: 500 });
   }
 
   // 头像替换成功后清理旧文件，避免孤立文件占用存储
   if (uploadedPath && previous?.avatar_path && previous.avatar_path !== uploadedPath) {
-    await supabase.storage.from("chat-media").remove([previous.avatar_path]);
+    await deleteObjects([previous.avatar_path]).catch(() => undefined);
   }
 
   return Response.json({ idol: data });

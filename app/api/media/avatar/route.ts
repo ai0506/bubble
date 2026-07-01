@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createSignedReadUrl } from "@/lib/objectStorage";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 // 按 idolId 代理头像：私有 bucket 不直接暴露，短期签名 URL 转发字节。
@@ -22,15 +23,18 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "Avatar not found" }, { status: 404 });
   }
 
-  const { data, error } = await supabase.storage
-    .from("chat-media")
-    .createSignedUrl(idol.avatar_path, 60 * 60, { transform: { width: 128, height: 128, resize: "cover" } });
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+  let signedUrl: string;
+  try {
+    signedUrl = await createSignedReadUrl({
+      key: idol.avatar_path,
+      expiresInSeconds: 60 * 60,
+      contentTypeHint: "image",
+    });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "Create signed URL failed" }, { status: 500 });
   }
 
-  const mediaResponse = await fetch(data.signedUrl);
+  const mediaResponse = await fetch(signedUrl);
   const headers = new Headers();
   const contentType = mediaResponse.headers.get("content-type");
   if (contentType) headers.set("content-type", contentType);

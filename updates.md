@@ -34,3 +34,9 @@
 [CodeX][260701122536] Load motion preview videos through direct signed URLs instead of proxy streaming
 [CodeX][260630225724] optimize image upload compression, thumbnail loading, media cache, and message rerender behavior
 [CodeX][260701123352] clarified multi-idol plan decisions, default asw fallback, migration order, avatar media access, and upload cleanup notes
+[CodeX][260701152435] added technical OSS migration plan for moving media storage from Supabase Storage to Alibaba Cloud OSS
+[CodeX][260701152717] added Alibaba Cloud OSS and CDN documentation references to the OSS migration plan
+[CodeX][260701154307] implemented Alibaba Cloud OSS storage adapter and switched media upload, delete, and signed URL routes to object storage
+[CodeX][260701154650] added and ran OSS migration script to copy existing Supabase Storage media objects to Alibaba Cloud OSS
+[CodeX][260701160734] changed chat media rendering to load direct signed OSS URLs so locally sent photos are visible outside localhost
+[CodeX][260701161743] changed media file route to redirect to OSS signed URLs and log detailed OSS signing errors

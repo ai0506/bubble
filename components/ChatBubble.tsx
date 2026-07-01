@@ -77,14 +77,28 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
 
       const isStillImage = message.type === "image" || message.type === "gif" || message.type === "motion";
       const mediaWidth = isStillImage ? String(IMAGE_BOX_SIZE.width * 2) : "";
-      const params = new URLSearchParams({ mediaPath: message.media_path });
-      if (mediaWidth) params.set("width", mediaWidth);
+      const response = await fetch("/api/media/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaPath: message.media_path,
+          width: mediaWidth ? Number(mediaWidth) : undefined,
+        }),
+      });
+      if (!response.ok) {
+        if (!cancelled) setMediaUrl("");
+        return;
+      }
+
+      const data = (await response.json()) as { url?: string };
       if (!cancelled) {
-        setMediaUrl(`/api/media/file?${params.toString()}`);
+        setMediaUrl(data.url || "");
       }
     }
 
-    loadMedia();
+    void loadMedia().catch(() => {
+      if (!cancelled) setMediaUrl("");
+    });
     return () => {
       cancelled = true;
     };

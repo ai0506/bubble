@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { requireAdmin } from "@/lib/adminAuth";
 import { resolveWritableIdolId } from "@/lib/idols";
 import { allowedAdminUpload, extensionFromName, inferMessageType } from "@/lib/media";
+import { deleteObjects, uploadObject } from "@/lib/objectStorage";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(request: Request) {
@@ -36,19 +37,12 @@ export async function POST(request: Request) {
     const stillPath = `${base}.${stillExt}`;
     const videoPath = `${base}_video.${videoExt}`;
 
-    const stillUpload = await supabase.storage
-      .from("chat-media")
-      .upload(stillPath, file, { contentType: file.type || "image/jpeg", upsert: false });
-    if (stillUpload.error) {
-      return Response.json({ error: stillUpload.error.message }, { status: 500 });
-    }
-
-    const videoUpload = await supabase.storage
-      .from("chat-media")
-      .upload(videoPath, motionVideo, { contentType: motionVideo.type || "video/mp4", upsert: false });
-    if (videoUpload.error) {
-      await supabase.storage.from("chat-media").remove([stillPath]);
-      return Response.json({ error: videoUpload.error.message }, { status: 500 });
+    try {
+      await uploadObject({ key: stillPath, file, contentType: file.type || "image/jpeg" });
+      await uploadObject({ key: videoPath, file: motionVideo, contentType: motionVideo.type || "video/mp4" });
+    } catch (error) {
+      await deleteObjects([stillPath]).catch(() => undefined);
+      return Response.json({ error: error instanceof Error ? error.message : "Upload failed" }, { status: 500 });
     }
 
     const { data, error } = await supabase
@@ -66,7 +60,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      await supabase.storage.from("chat-media").remove([stillPath, videoPath]);
+      await deleteObjects([stillPath, videoPath]).catch(() => undefined);
       return Response.json({ error: error.message }, { status: 500 });
     }
 
@@ -89,13 +83,10 @@ export async function POST(request: Request) {
   const extension = extensionFromName(file.name);
   const mediaPath = `${type}/${today}/${randomUUID()}.${extension}`;
 
-  const upload = await supabase.storage.from("chat-media").upload(mediaPath, file, {
-    contentType: file.type || "application/octet-stream",
-    upsert: false,
-  });
-
-  if (upload.error) {
-    return Response.json({ error: upload.error.message }, { status: 500 });
+  try {
+    await uploadObject({ key: mediaPath, file, contentType: file.type || "application/octet-stream" });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "Upload failed" }, { status: 500 });
   }
 
   const { data, error } = await supabase
@@ -113,6 +104,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
+    await deleteObjects([mediaPath]).catch(() => undefined);
     return Response.json({ error: error.message }, { status: 500 });
   }
 

@@ -30,3 +30,5 @@ Thumbs.db
 # local agent/tooling scratch
 .claude/
 .codex-remote-attachments/
+
+.vercel
