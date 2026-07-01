@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
+import { resolveWritableIdolId } from "@/lib/idols";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { isMissingMessagesTable } from "@/lib/supabaseErrors";
 import type { MessageType } from "@/lib/types";
@@ -27,9 +28,15 @@ export async function POST(request: NextRequest) {
   if (!type) return Response.json({ error: "type is required" }, { status: 400 });
 
   const supabase = getSupabaseAdmin();
+  const idolId = await resolveWritableIdolId(supabase, null);
+  if (!idolId) {
+    return Response.json({ error: "No idol available" }, { status: 404 });
+  }
+
   const { data, error } = await supabase
     .from("messages")
     .insert({
+      idol_id: idolId,
       sender_kind: "admin",
       visibility: "public",
       type,

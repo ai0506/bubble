@@ -1,0 +1,306 @@
+"use client";
+
+import { LogOut, Mic2, RefreshCw, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChatBubble } from "@/components/ChatBubble";
+import { DateDivider } from "@/components/DateDivider";
+import { IdolComposer } from "@/components/IdolComposer";
+import { formatDateDivider } from "@/lib/dates";
+import type { ChatMessage, Idol } from "@/lib/types";
+
+const TEXT = {
+  checking: "检查登录状态...",
+  loginTitle: "爱豆登录",
+  loginSubtitle: "登录后在这里发布消息、查看粉丝留言",
+  handlePlaceholder: "账号（handle）",
+  passwordPlaceholder: "密码",
+  login: "登录",
+  wrongCredentials: "账号或密码不正确",
+  loading: "加载中...",
+  empty: "还没有消息，发一条试试",
+  refresh: "刷新",
+  logout: "退出",
+  deleteTitle: "确认删除这条消息？",
+  deleteBody: "删除后会同时移除数据库记录和媒体文件，不可撤回。",
+  cancel: "取消",
+  confirmDelete: "确认删除",
+  deleteMessage: "删除消息",
+};
+
+export function IdolConsole() {
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [idol, setIdol] = useState<Idol | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [handle, setHandle] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ChatMessage | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+  }, []);
+
+  const loadMessages = useCallback(async () => {
+    const response = await fetch("/api/idol/messages", { cache: "no-store" });
+    if (response.status === 401) {
+      setAuthed(false);
+      return;
+    }
+    if (!response.ok) return;
+    const data = (await response.json()) as { messages: ChatMessage[] };
+    setMessages(data.messages);
+  }, []);
+
+  const bootstrap = useCallback(async () => {
+    const response = await fetch("/api/idol/me", { cache: "no-store" });
+    if (!response.ok) {
+      setAuthed(false);
+      setLoading(false);
+      return;
+    }
+    const data = (await response.json()) as { idol: Idol };
+    setIdol(data.idol);
+    setAuthed(true);
+    await loadMessages();
+    setLoading(false);
+  }, [loadMessages]);
+
+  useEffect(() => {
+    void bootstrap();
+  }, [bootstrap]);
+
+  useEffect(() => {
+    scrollToBottom("smooth");
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (!authed) return;
+    const timer = window.setInterval(() => void loadMessages(), 15_000);
+    return () => window.clearInterval(timer);
+  }, [authed, loadMessages]);
+
+  async function login(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setLoginError("");
+    try {
+      const response = await fetch("/api/idol/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handle, password }),
+      });
+      if (!response.ok) {
+        setLoginError(TEXT.wrongCredentials);
+        return;
+      }
+      const data = (await response.json()) as { idol: Idol };
+      setIdol(data.idol);
+      setAuthed(true);
+      setPassword("");
+      setLoading(true);
+      await loadMessages();
+      setLoading(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function logout() {
+    await fetch("/api/idol/logout", { method: "POST" });
+    setAuthed(false);
+    setIdol(null);
+    setMessages([]);
+  }
+
+  async function sendText(text: string) {
+    const response = await fetch("/api/idol/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentText: text }),
+    });
+    if (!response.ok) throw new Error("send failed");
+    await loadMessages();
+  }
+
+  async function upload(formData: FormData) {
+    const response = await fetch("/api/idol/upload", { method: "POST", body: formData });
+    if (!response.ok) throw new Error("upload failed");
+    await loadMessages();
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setBusy(true);
+    try {
+      const response = await fetch("/api/idol/messages", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: pendingDelete.id }),
+      });
+      if (response.ok) {
+        setPendingDelete(null);
+        await loadMessages();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (authed === null) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-sm text-slate-500">{TEXT.checking}</div>
+    );
+  }
+
+  if (!authed) {
+    return (
+      <div className="flex flex-1 items-center justify-center px-6">
+        <form onSubmit={login} className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-lg">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-white">
+              <Mic2 size={18} />
+            </span>
+            <div>
+              <h1 className="text-lg font-semibold">{TEXT.loginTitle}</h1>
+              <p className="text-xs text-slate-500">{TEXT.loginSubtitle}</p>
+            </div>
+          </div>
+          <input
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+            className="mt-4 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-slate-500"
+            placeholder={TEXT.handlePlaceholder}
+            autoCapitalize="none"
+            autoCorrect="off"
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 outline-none focus:border-slate-500"
+            placeholder={TEXT.passwordPlaceholder}
+          />
+          {loginError ? <p className="mt-2 text-sm text-rose-600">{loginError}</p> : null}
+          <button
+            type="submit"
+            disabled={busy || !handle.trim() || !password}
+            className="mt-4 h-11 w-full rounded-full bg-ink text-sm font-semibold text-white disabled:bg-slate-300"
+          >
+            {TEXT.login}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  const viewerName = idol?.display_name || "";
+  let lastDivider = "";
+
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <header className="shrink-0 border-b border-black/5 bg-white/85 px-4 py-3 backdrop-blur">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold">{idol?.display_name}</h1>
+            <p className="text-xs text-slate-500">@{idol?.handle}</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void loadMessages()}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+              aria-label={TEXT.refresh}
+            >
+              <RefreshCw size={17} />
+            </button>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+              aria-label={TEXT.logout}
+            >
+              <LogOut size={17} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-1 py-3 scrollbar-thin">
+        {loading ? <p className="p-6 text-center text-sm text-slate-500">{TEXT.loading}</p> : null}
+        {!loading && messages.length === 0 ? (
+          <p className="p-6 text-center text-sm text-slate-500">{TEXT.empty}</p>
+        ) : null}
+        {messages.map((message) => {
+          const divider = formatDateDivider(message.created_at);
+          const showDivider = divider !== lastDivider;
+          lastDivider = divider;
+          return (
+            <div key={message.id}>
+              {showDivider ? <DateDivider label={divider} /> : null}
+              <div className="group relative">
+                <ChatBubble
+                  message={message}
+                  viewerName={viewerName}
+                  selfKind="admin"
+                  onMediaReady={() => scrollToBottom("auto")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete(message)}
+                  className="absolute right-2 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-slate-400 opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
+                  aria-label={TEXT.deleteMessage}
+                  title={TEXT.deleteMessage}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      <IdolComposer disabled={loading} onSendText={sendText} onUpload={upload} />
+
+      {pendingDelete ? (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-5">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-base font-semibold">{TEXT.deleteTitle}</h2>
+              <button
+                type="button"
+                onClick={() => setPendingDelete(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+                aria-label={TEXT.cancel}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="mt-1 text-sm leading-6 text-slate-500">{TEXT.deleteBody}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingDelete(null)}
+                className="h-11 rounded-full bg-slate-100 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                {TEXT.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDelete()}
+                disabled={busy}
+                className="flex h-11 items-center justify-center gap-2 rounded-full bg-rose-600 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:bg-slate-300"
+              >
+                <Trash2 size={16} />
+                {TEXT.confirmDelete}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

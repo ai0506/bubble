@@ -7,7 +7,7 @@ import { X, User, Play, Pause } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { VoiceBubble } from "@/components/VoiceBubble";
 import { formatClock } from "@/lib/dates";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, MessageSenderKind } from "@/lib/types";
 
 const ME_LABEL = "\u6211";
 const IMAGE_ALT = "\u804a\u5929\u56fe\u7247";
@@ -22,6 +22,8 @@ type ChatBubbleProps = {
   message: ChatMessage;
   viewerName: string;
   onMediaReady?: () => void;
+  // 哪一方算「我」（气泡靠右）。粉丝端 = user（默认），爱豆端大群 = admin。
+  selfKind?: MessageSenderKind;
 };
 
 function UserAvatar() {
@@ -45,14 +47,15 @@ function AdminAvatar() {
   );
 }
 
-export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProps) {
+export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user" }: ChatBubbleProps) {
   const [mediaUrl, setMediaUrl] = useState("");
   const [motionUrl, setMotionUrl] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [motionPlaying, setMotionPlaying] = useState(false);
   const [motionPreviewReady, setMotionPreviewReady] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
-  const isUser = message.sender_kind === "user";
+  const isSelf = message.sender_kind === selfKind; // 是否「我」发的（靠右）
+  const isFan = message.sender_kind === "user"; // 粉丝消息（显示昵称 + 用户头像）
 
   useEffect(() => {
     let cancelled = false;
@@ -141,8 +144,8 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
 
   const isMotion = message.type === "motion";
   const isImage = message.type === "image" || message.type === "gif" || isMotion;
-  const cornerClass = isUser ? "rounded-br-md" : "rounded-bl-md";
-  const justifyClass = isUser ? "justify-end" : "justify-start";
+  const cornerClass = isSelf ? "rounded-br-md" : "rounded-bl-md";
+  const justifyClass = isSelf ? "justify-end" : "justify-start";
   const watermarkName = viewerName.trim() || ME_LABEL;
   const watermarkLabel = `@${watermarkName}`;
   // 纯视频实况（没有封面静态图）时，尺寸等 video 元数据加载后再知道
@@ -152,14 +155,14 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   return (
     <div className="px-3 py-1.5">
       <div className={`flex items-end gap-2 ${justifyClass}`}>
-        {!isUser ? <AdminAvatar /> : null}
-        <div className={`flex max-w-[76%] flex-col ${isUser ? "items-end" : "items-start"}`}>
-          {isUser ? <span className="mb-1 px-1 text-[11px] text-slate-500">{message.nickname || ME_LABEL}</span> : null}
+        {!isSelf ? (message.sender_kind === "admin" ? <AdminAvatar /> : <UserAvatar />) : null}
+        <div className={`flex max-w-[76%] flex-col ${isSelf ? "items-end" : "items-start"}`}>
+          {isFan ? <span className="mb-1 px-1 text-[11px] text-slate-500">{message.nickname || ME_LABEL}</span> : null}
 
           {message.type === "text" ? (
             <div
               className={`rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm ${cornerClass} ${
-                isUser ? "bg-user" : "bg-white"
+                isSelf ? "bg-user" : "bg-white"
               }`}
             >
               <p className="whitespace-pre-wrap break-words">{message.content_text}</p>
@@ -331,7 +334,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
           ) : null}
 
           {message.type === "voice" ? (
-            <div className={`rounded-2xl px-3 py-2 shadow-sm ${cornerClass} ${isUser ? "bg-user" : "bg-white"}`}>
+            <div className={`rounded-2xl px-3 py-2 shadow-sm ${cornerClass} ${isSelf ? "bg-user" : "bg-white"}`}>
               {mediaUrl ? (
                 <VoiceBubble url={mediaUrl} duration={message.media_duration} onReady={onMediaReady} />
               ) : (
@@ -340,9 +343,9 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
             </div>
           ) : null}
         </div>
-        {isUser ? <UserAvatar /> : null}
+        {isSelf ? (message.sender_kind === "admin" ? <AdminAvatar /> : <UserAvatar />) : null}
       </div>
-      <div className={`mt-1 flex ${justifyClass} ${isUser ? "pr-10" : "pl-10"}`}>
+      <div className={`mt-1 flex ${justifyClass} ${isSelf ? "pr-10" : "pl-10"}`}>
         <span className="px-1 text-[11px] text-slate-400">{formatClock(message.created_at)}</span>
       </div>
     </div>

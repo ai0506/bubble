@@ -4,6 +4,7 @@ export type MessageVisibility = "public" | "private";
 
 export type ChatMessage = {
   id: string;
+  idol_id: string;
   sender_kind: MessageSenderKind;
   visibility: MessageVisibility;
   visitor_id: string | null;
@@ -15,6 +16,16 @@ export type ChatMessage = {
   media_duration: number | null;
   created_at: string;
   is_deleted: boolean;
+};
+
+export type Idol = {
+  id: string;
+  handle: string;
+  display_name: string;
+  avatar_path: string | null;
+  bio: string | null;
+  is_active: boolean;
+  created_at: string;
 };
 
 export type SignedMedia = {

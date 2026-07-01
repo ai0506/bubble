@@ -1,21 +1,17 @@
 import { randomUUID } from "crypto";
-import { requireAdmin } from "@/lib/adminAuth";
-import { resolveWritableIdolId } from "@/lib/idols";
+import { requireIdol } from "@/lib/idolAuth";
 import { allowedAdminUpload, extensionFromName, inferMessageType } from "@/lib/media";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAdmin();
-  if (unauthorized) return unauthorized;
+  const session = await requireIdol();
+  if (session instanceof Response) return session;
+  const idolId = session.idolId;
 
   const formData = await request.formData();
   const requestedType = formData.get("type");
   const contentText = String(formData.get("contentText") || "").trim().slice(0, 1000) || null;
   const supabase = getSupabaseAdmin();
-  const idolId = await resolveWritableIdolId(supabase, null);
-  if (!idolId) {
-    return Response.json({ error: "No idol available" }, { status: 404 });
-  }
   const today = new Date().toISOString().slice(0, 10);
 
   // 实况：封面图 + 动态视频两个文件
@@ -30,7 +26,7 @@ export async function POST(request: Request) {
       return Response.json({ error: `视频请选 .mp4 文件，不是图片（当前：${motionVideo.name}）` }, { status: 400 });
     }
 
-    const base = `motion/${today}/${randomUUID()}`;
+    const base = `${idolId}/motion/${today}/${randomUUID()}`;
     const stillExt = extensionFromName(file.name) || "jpg";
     const videoExt = extensionFromName(motionVideo.name) || "mp4";
     const stillPath = `${base}.${stillExt}`;
@@ -87,7 +83,7 @@ export async function POST(request: Request) {
   const mediaDuration = Number.isFinite(durationValue) && durationValue > 0 ? Math.round(durationValue) : null;
 
   const extension = extensionFromName(file.name);
-  const mediaPath = `${type}/${today}/${randomUUID()}.${extension}`;
+  const mediaPath = `${idolId}/${type}/${today}/${randomUUID()}.${extension}`;
 
   const upload = await supabase.storage.from("chat-media").upload(mediaPath, file, {
     contentType: file.type || "application/octet-stream",
@@ -113,6 +109,8 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
+    // 数据库插入失败时清理已上传文件，避免孤立文件
+    await supabase.storage.from("chat-media").remove([mediaPath]);
     return Response.json({ error: error.message }, { status: 500 });
   }
 
