@@ -31,4 +31,5 @@
 [CodeX][260630224525] Removed video-frame thumbnail loading from motion photo chat previews
 [CodeX][260630231326] Made motion-only chat previews independent from video URL loading
 [CodeX][260630231539] Fixed motion photo preview loading placeholder size and centering
+[CodeX][260701122536] Load motion preview videos through direct signed URLs instead of proxy streaming
 [CodeX][260630225724] optimize image upload compression, thumbnail loading, media cache, and message rerender behavior

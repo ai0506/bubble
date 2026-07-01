@@ -79,13 +79,40 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   }, [message.media_path, message.type, onMediaReady]);
 
   useEffect(() => {
+    setMotionUrl("");
+    setMotionPreviewReady(false);
+    setMotionPlaying(false);
     if (message.type !== "motion" || !message.motion_video_path) {
-      setMotionUrl("");
       return;
     }
-    const params = new URLSearchParams({ mediaPath: message.motion_video_path });
-    setMotionUrl(`/api/media/file?${params.toString()}`);
   }, [message.type, message.motion_video_path]);
+
+  useEffect(() => {
+    if (!previewOpen || message.type !== "motion" || !message.motion_video_path) return;
+
+    const controller = new AbortController();
+    setMotionUrl("");
+    setMotionPreviewReady(false);
+    setMotionPlaying(false);
+
+    async function loadMotionUrl() {
+      const response = await fetch("/api/media/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaPath: message.motion_video_path }),
+        signal: controller.signal,
+      });
+      if (!response.ok) return;
+
+      const data = (await response.json()) as { url?: string };
+      if (!controller.signal.aborted && data.url) {
+        setMotionUrl(data.url);
+      }
+    }
+
+    void loadMotionUrl().catch(() => undefined);
+    return () => controller.abort();
+  }, [previewOpen, message.type, message.motion_video_path]);
 
   useEffect(() => {
     const video = previewVideoRef.current;
