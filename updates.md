@@ -39,3 +39,4 @@
 [CodeX][260701154307] implemented Alibaba Cloud OSS storage adapter and switched media upload, delete, and signed URL routes to object storage
 [CodeX][260701154650] added and ran OSS migration script to copy existing Supabase Storage media objects to Alibaba Cloud OSS
 [CodeX][260701160734] changed chat media rendering to load direct signed OSS URLs so locally sent photos are visible outside localhost
+[CodeX][260701161743] changed media file route to redirect to OSS signed URLs and log detailed OSS signing errors

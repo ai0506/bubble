@@ -44,6 +44,7 @@ function getOssClient() {
     ["ALI_OSS_ACCESS_KEY_SECRET", accessKeySecret],
     ["ALI_OSS_BUCKET", bucket],
     ["ALI_OSS_REGION", region],
+    ["ALI_OSS_ENDPOINT", endpoint],
   ].filter(([, value]) => !value);
 
   if (missing.length > 0) {

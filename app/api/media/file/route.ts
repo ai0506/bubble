@@ -3,6 +3,25 @@ import { isMissingMessagesTable } from "@/lib/supabaseErrors";
 import { createSignedReadUrl } from "@/lib/objectStorage";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
+function getErrorField(error: unknown, field: "code" | "message" | "status" | "requestId") {
+  if (error && typeof error === "object" && field in error) {
+    const value = (error as Record<string, unknown>)[field];
+    return typeof value === "string" || typeof value === "number" ? value : undefined;
+  }
+  if (field === "message" && error instanceof Error) return error.message;
+  return undefined;
+}
+
+function logOssError(error: unknown, mediaPath: string) {
+  console.error("[media/file] OSS signed URL failed", {
+    mediaPath,
+    code: getErrorField(error, "code"),
+    message: getErrorField(error, "message"),
+    status: getErrorField(error, "status"),
+    requestId: getErrorField(error, "requestId"),
+  });
+}
+
 export async function GET(request: NextRequest) {
   const mediaPath = request.nextUrl.searchParams.get("mediaPath")?.trim() || "";
   const widthValue = Number(request.nextUrl.searchParams.get("width") || "0");
@@ -50,26 +69,9 @@ export async function GET(request: NextRequest) {
       contentTypeHint: width && isImage ? "image" : undefined,
     });
   } catch (error) {
+    logOssError(error, mediaPath);
     return Response.json({ error: error instanceof Error ? error.message : "Create signed URL failed" }, { status: 500 });
   }
 
-  const headers = new Headers();
-  const range = request.headers.get("range");
-  if (range) headers.set("range", range);
-
-  const mediaResponse = await fetch(signedUrl, { headers });
-  const responseHeaders = new Headers();
-  for (const key of ["content-type", "content-length", "content-range", "accept-ranges", "cache-control"]) {
-    const value = mediaResponse.headers.get(key);
-    if (value) responseHeaders.set(key, value);
-  }
-  responseHeaders.set(
-    "Cache-Control",
-    isImage ? "private, max-age=604800, immutable" : "private, max-age=86400",
-  );
-
-  return new Response(mediaResponse.body, {
-    status: mediaResponse.status,
-    headers: responseHeaders,
-  });
+  return Response.redirect(signedUrl, 302);
 }
