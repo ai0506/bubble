@@ -7,7 +7,7 @@ import { X, User, Play, Pause } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { VoiceBubble } from "@/components/VoiceBubble";
 import { formatClock } from "@/lib/dates";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, MessageSenderKind } from "@/lib/types";
 
 const ME_LABEL = "\u6211";
 const IMAGE_ALT = "\u804a\u5929\u56fe\u7247";
@@ -22,6 +22,8 @@ type ChatBubbleProps = {
   message: ChatMessage;
   viewerName: string;
   onMediaReady?: () => void;
+  // 哪一方算「我」（气泡靠右）。粉丝端 = user（默认），爱豆端大群 = admin。
+  selfKind?: MessageSenderKind;
 };
 
 function UserAvatar() {
@@ -45,13 +47,15 @@ function AdminAvatar() {
   );
 }
 
-export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProps) {
+export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user" }: ChatBubbleProps) {
   const [mediaUrl, setMediaUrl] = useState("");
   const [motionUrl, setMotionUrl] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [motionPlaying, setMotionPlaying] = useState(false);
+  const [motionPreviewReady, setMotionPreviewReady] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
-  const isUser = message.sender_kind === "user";
+  const isSelf = message.sender_kind === selfKind; // 是否「我」发的（靠右）
+  const isFan = message.sender_kind === "user"; // 粉丝消息（显示昵称 + 用户头像）
 
   useEffect(() => {
     let cancelled = false;
@@ -78,17 +82,45 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
   }, [message.media_path, message.type, onMediaReady]);
 
   useEffect(() => {
+    setMotionUrl("");
+    setMotionPreviewReady(false);
+    setMotionPlaying(false);
     if (message.type !== "motion" || !message.motion_video_path) {
-      setMotionUrl("");
       return;
     }
-    const params = new URLSearchParams({ mediaPath: message.motion_video_path });
-    setMotionUrl(`/api/media/file?${params.toString()}`);
   }, [message.type, message.motion_video_path]);
+
+  useEffect(() => {
+    if (!previewOpen || message.type !== "motion" || !message.motion_video_path) return;
+
+    const controller = new AbortController();
+    setMotionUrl("");
+    setMotionPreviewReady(false);
+    setMotionPlaying(false);
+
+    async function loadMotionUrl() {
+      const response = await fetch("/api/media/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaPath: message.motion_video_path }),
+        signal: controller.signal,
+      });
+      if (!response.ok) return;
+
+      const data = (await response.json()) as { url?: string };
+      if (!controller.signal.aborted && data.url) {
+        setMotionUrl(data.url);
+      }
+    }
+
+    void loadMotionUrl().catch(() => undefined);
+    return () => controller.abort();
+  }, [previewOpen, message.type, message.motion_video_path]);
 
   useEffect(() => {
     const video = previewVideoRef.current;
     if (!video) return;
+    if (!motionPreviewReady) return;
     if (motionPlaying) {
       video.currentTime = 0;
       void video.play();
@@ -96,7 +128,14 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
       video.pause();
       video.currentTime = 0.001;
     }
-  }, [motionPlaying]);
+  }, [motionPlaying, motionPreviewReady]);
+
+  useEffect(() => {
+    if (previewOpen) {
+      setMotionPreviewReady(false);
+      setMotionPlaying(false);
+    }
+  }, [previewOpen, motionUrl]);
 
   function closePreview() {
     setPreviewOpen(false);
@@ -105,24 +144,25 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
 
   const isMotion = message.type === "motion";
   const isImage = message.type === "image" || message.type === "gif" || isMotion;
-  const cornerClass = isUser ? "rounded-br-md" : "rounded-bl-md";
-  const justifyClass = isUser ? "justify-end" : "justify-start";
+  const cornerClass = isSelf ? "rounded-br-md" : "rounded-bl-md";
+  const justifyClass = isSelf ? "justify-end" : "justify-start";
   const watermarkName = viewerName.trim() || ME_LABEL;
   const watermarkLabel = `@${watermarkName}`;
   // 纯视频实况（没有封面静态图）时，尺寸等 video 元数据加载后再知道
   const motionVideoOnly = isMotion && !message.media_path;
+  const hasChatPreview = Boolean(mediaUrl) || motionVideoOnly;
 
   return (
     <div className="px-3 py-1.5">
       <div className={`flex items-end gap-2 ${justifyClass}`}>
-        {!isUser ? <AdminAvatar /> : null}
-        <div className={`flex max-w-[76%] flex-col ${isUser ? "items-end" : "items-start"}`}>
-          {isUser ? <span className="mb-1 px-1 text-[11px] text-slate-500">{message.nickname || ME_LABEL}</span> : null}
+        {!isSelf ? (message.sender_kind === "admin" ? <AdminAvatar /> : <UserAvatar />) : null}
+        <div className={`flex max-w-[76%] flex-col ${isSelf ? "items-end" : "items-start"}`}>
+          {isFan ? <span className="mb-1 px-1 text-[11px] text-slate-500">{message.nickname || ME_LABEL}</span> : null}
 
           {message.type === "text" ? (
             <div
               className={`rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm ${cornerClass} ${
-                isUser ? "bg-user" : "bg-white"
+                isSelf ? "bg-user" : "bg-white"
               }`}
             >
               <p className="whitespace-pre-wrap break-words">{message.content_text}</p>
@@ -132,7 +172,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
           {isImage ? (
             <>
               {/* 缩略图 */}
-              {mediaUrl || (motionVideoOnly && motionUrl) ? (
+              {hasChatPreview ? (
                 <button
                   type="button"
                   onClick={() => setPreviewOpen(true)}
@@ -205,25 +245,51 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
 
                   {/* 媒体内容区 */}
                   <div className="flex min-h-0 flex-1 items-center justify-center px-4">
-                    <div
-                      className="relative"
-                      onClick={(event) => event.stopPropagation()}
-                    >
+                    <div className="relative flex items-center justify-center" onClick={(event) => event.stopPropagation()}>
                       {isMotion && motionUrl ? (
                         // 单一 video 元素，通过 ref 控制播放/暂停，避免切换时尺寸抖动
-                        <video
-                          ref={previewVideoRef}
-                          src={motionUrl}
-                          playsInline
-                          preload="metadata"
-                          disablePictureInPicture
-                          controlsList="nodownload nofullscreen noremoteplayback"
-                          onLoadedMetadata={(event) => { event.currentTarget.currentTime = 0.001; }}
-                          onEnded={() => setMotionPlaying(false)}
-                          onContextMenu={(event) => event.preventDefault()}
-                          className="block max-h-[calc(100vh-9rem)] w-auto max-w-full select-none object-contain"
-                          style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
-                        />
+                        <div
+                          className="relative flex items-center justify-center overflow-hidden rounded-2xl"
+                          style={{ width: "min(78vw, 360px)", height: "min(calc(100vh - 10rem), 480px)" }}
+                        >
+                          {!motionPreviewReady ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/10 text-white/70">
+                              <Play size={32} className="fill-current" />
+                            </div>
+                          ) : null}
+                          <video
+                            ref={previewVideoRef}
+                            src={motionUrl}
+                            playsInline
+                            preload="auto"
+                            disablePictureInPicture
+                            controlsList="nodownload nofullscreen noremoteplayback"
+                            onLoadedMetadata={(event) => {
+                              event.currentTarget.currentTime = 0.001;
+                            }}
+                            onLoadedData={() => {
+                              setMotionPreviewReady(true);
+                              onMediaReady?.();
+                            }}
+                            onCanPlay={() => {
+                              setMotionPreviewReady(true);
+                              onMediaReady?.();
+                            }}
+                            onEnded={() => setMotionPlaying(false)}
+                            onContextMenu={(event) => event.preventDefault()}
+                            className={`block h-full w-full select-none object-contain ${
+                              motionPreviewReady ? "visible" : "invisible"
+                            }`}
+                            style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+                          />
+                        </div>
+                      ) : isMotion ? (
+                        <div
+                          className="flex items-center justify-center rounded-2xl bg-white/10 text-white/70"
+                          style={{ width: "min(78vw, 360px)", height: "min(calc(100vh - 10rem), 480px)" }}
+                        >
+                          <Play size={32} className="fill-current" />
+                        </div>
                       ) : mediaUrl ? (
                         <img
                           src={mediaUrl}
@@ -268,7 +334,7 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
           ) : null}
 
           {message.type === "voice" ? (
-            <div className={`rounded-2xl px-3 py-2 shadow-sm ${cornerClass} ${isUser ? "bg-user" : "bg-white"}`}>
+            <div className={`rounded-2xl px-3 py-2 shadow-sm ${cornerClass} ${isSelf ? "bg-user" : "bg-white"}`}>
               {mediaUrl ? (
                 <VoiceBubble url={mediaUrl} duration={message.media_duration} onReady={onMediaReady} />
               ) : (
@@ -277,9 +343,9 @@ export function ChatBubble({ message, viewerName, onMediaReady }: ChatBubbleProp
             </div>
           ) : null}
         </div>
-        {isUser ? <UserAvatar /> : null}
+        {isSelf ? (message.sender_kind === "admin" ? <AdminAvatar /> : <UserAvatar />) : null}
       </div>
-      <div className={`mt-1 flex ${justifyClass} ${isUser ? "pr-10" : "pl-10"}`}>
+      <div className={`mt-1 flex ${justifyClass} ${isSelf ? "pr-10" : "pl-10"}`}>
         <span className="px-1 text-[11px] text-slate-400">{formatClock(message.created_at)}</span>
       </div>
     </div>

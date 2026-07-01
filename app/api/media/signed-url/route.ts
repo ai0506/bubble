@@ -11,12 +11,21 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabaseAdmin();
-  const { data: message, error: messageError } = await supabase
+  let { data: message, error: messageError } = await supabase
     .from("messages")
     .select("id, media_path, is_deleted")
     .eq("media_path", mediaPath)
     .eq("is_deleted", false)
     .maybeSingle();
+
+  if (!messageError && !message) {
+    ({ data: message, error: messageError } = await supabase
+      .from("messages")
+      .select("id, media_path, is_deleted")
+      .eq("motion_video_path", mediaPath)
+      .eq("is_deleted", false)
+      .maybeSingle());
+  }
 
   if (messageError) {
     if (isMissingMessagesTable(messageError)) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatBubble } from "@/components/ChatBubble";
 import { ChatComposer } from "@/components/ChatComposer";
@@ -8,7 +8,7 @@ import { DateDivider } from "@/components/DateDivider";
 import { NicknameModal } from "@/components/NicknameModal";
 import { SubscribeOverlay } from "@/components/SubscribeOverlay";
 import { formatDateDivider } from "@/lib/dates";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, Idol } from "@/lib/types";
 import {
   activateOneYearSubscription,
   decrementRemainingMessages,
@@ -20,10 +20,10 @@ import {
   syncAllowanceWithLatestAdminMessage,
 } from "@/lib/visitor";
 
-const DEFAULT_SITE_NAME = "asw\u7684Bubble";
 const SUBSCRIBED_LABEL = "\u8ba2\u9605\u6709\u6548\u81f32027-06-30";
 const UNSUBSCRIBED_LABEL = "\u672a\u8ba2\u9605";
 const REFRESH_LABEL = "\u5237\u65b0\u6d88\u606f";
+const BACK_LABEL = "\u8fd4\u56de\u7231\u8c46\u5217\u8868"; // \u8fd4\u56de\u7231\u8c46\u5217\u8868
 const LOADING_LABEL = "\u52a0\u8f7d\u4e2d...";
 const EMPTY_LABEL = "\u8fd8\u6ca1\u6709\u6d88\u606f";
 
@@ -53,7 +53,13 @@ function getMessagesSignature(messages: ChatMessage[]) {
     .join("|");
 }
 
-export function ChatScreen() {
+type ChatScreenProps = {
+  idol: Pick<Idol, "id" | "handle" | "display_name">;
+  onBack: () => void;
+};
+
+export function ChatScreen({ idol, onBack }: ChatScreenProps) {
+  const idolId = idol.id;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [visitorId, setVisitorId] = useState("");
   const [nickname, setNickname] = useState("");
@@ -69,28 +75,33 @@ export function ChatScreen() {
     bottomRef.current?.scrollIntoView({ behavior, block: "end" });
   }, []);
 
-  const loadMessages = useCallback(async (id: string) => {
-    const response = await fetch(`/api/messages?visitorId=${encodeURIComponent(id)}`, {
-      cache: "no-store",
-    });
-    if (!response.ok) return;
-    const data = (await response.json()) as { messages: ChatMessage[] };
-    setMessages((currentMessages) =>
-      getMessagesSignature(currentMessages) === getMessagesSignature(data.messages) ? currentMessages : data.messages,
-    );
-    setRemainingMessages(syncAllowanceWithLatestAdminMessage(getLatestAdminMessageId(data.messages)));
-  }, []);
+  const loadMessages = useCallback(
+    async (id: string) => {
+      const response = await fetch(
+        `/api/messages?visitorId=${encodeURIComponent(id)}&idolId=${encodeURIComponent(idolId)}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) return;
+      const data = (await response.json()) as { messages: ChatMessage[] };
+      setMessages((currentMessages) =>
+        getMessagesSignature(currentMessages) === getMessagesSignature(data.messages) ? currentMessages : data.messages,
+      );
+      setRemainingMessages(syncAllowanceWithLatestAdminMessage(idolId, getLatestAdminMessageId(data.messages)));
+    },
+    [idolId],
+  );
 
   useEffect(() => {
     const id = getOrCreateVisitorId();
     setVisitorId(id);
     setNickname(getNickname());
-    setSubscribed(isSubscriptionActive());
-    setRemainingMessages(getRemainingMessages());
+    setSubscribed(isSubscriptionActive(idolId));
+    setRemainingMessages(getRemainingMessages(idolId));
     setInitialized(true);
 
+    setLoading(true);
     loadMessages(id).finally(() => setLoading(false));
-  }, [loadMessages]);
+  }, [loadMessages, idolId]);
 
   useEffect(() => {
     scrollToBottom("smooth");
@@ -112,14 +123,14 @@ export function ChatScreen() {
     const response = await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visitorId, nickname, contentText: text }),
+      body: JSON.stringify({ visitorId, nickname, contentText: text, idolId }),
     });
 
     if (!response.ok) {
       throw new Error("Failed to send message.");
     }
 
-    setRemainingMessages(decrementRemainingMessages());
+    setRemainingMessages(decrementRemainingMessages(idolId));
     await loadMessages(visitorId);
   }
 
@@ -129,7 +140,7 @@ export function ChatScreen() {
   }
 
   function handleSubscribe() {
-    activateOneYearSubscription();
+    activateOneYearSubscription(idolId);
     setSubscribed(true);
   }
 
@@ -139,13 +150,21 @@ export function ChatScreen() {
     <div className="relative flex min-h-0 flex-1 flex-col">
       <header className="shrink-0 border-b border-black/5 bg-white/85 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-base font-semibold">
-              {process.env.NEXT_PUBLIC_SITE_NAME || DEFAULT_SITE_NAME}
-            </h1>
-            <p className="text-xs text-slate-500">
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+              aria-label={BACK_LABEL}
+            >
+              <ArrowLeft size={17} />
+            </button>
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-semibold">{idol.display_name}</h1>
+              <p className="text-xs text-slate-500">
               {!initialized ? " " : subscribed ? SUBSCRIBED_LABEL : UNSUBSCRIBED_LABEL}
-            </p>
+              </p>
+            </div>
           </div>
           <button
             type="button"

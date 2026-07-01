@@ -4,47 +4,60 @@
 
 ## 项目是什么
 
-**asw的Bubble** —— 一个娱乐性的「竖屏聊天 / 订阅展示」MVP（`package.json` 名为 `bubble-mvp`）。
+**asw的Bubble** —— 一个娱乐性的「竖屏聊天 / 订阅展示」MVP（`package.json` 名为 `bubble-mvp`）。**多爱豆**架构：爱豆与管理员是分离的两个角色。
 
-- 访客端（`/`）：在一个手机外壳里展示管理员发布的公开消息（文字 / 图片 / GIF / 语音 / 视频 / Motion Photo），并可在「订阅」后发送私信。
-- 管理端（`/admin`）：管理员登录后发布公开消息、上传媒体、删除消息。
-- **没有真实账号系统**：访客身份用 `visitor_id` + 昵称，存在浏览器 `localStorage`；订阅、剩余条数也只是前端 localStorage 状态，纯娱乐效果，用户可自行篡改。
+- 访客端（`/`）：手机外壳里先是爱豆发现/选择页；`/?idol=<handle>` 进入与某爱豆的聊天，展示该爱豆发布的公开消息（文字 / 图片 / GIF / 语音 / 视频 / Motion Photo），「订阅」后可发私信。粉丝与某爱豆的聊天只看到「该爱豆广播 + 自己发的私信」，看不到其他粉丝。
+- 爱豆端（`/idol`）：爱豆用 handle + 密码登录，进入聊天式发布界面。爱豆视角是「一个大群」：自己的公开广播 + 本频道所有粉丝发来的私信，按时间混排；爱豆只广播（不做定向回复），可删本频道任意消息。
+- 管理端（`/admin`）：管理员用 `ADMIN_PASSWORD` 登录，只负责创建 / 停用 / 改密 / 删除爱豆，不再直接发消息。
+- **没有真实账号系统（粉丝侧）**：访客身份用 `visitor_id` + 昵称，存在浏览器 `localStorage`；订阅、剩余条数也只是前端 localStorage 状态（按爱豆维度拆分，key 加 `:<idolId>` 后缀），纯娱乐效果，用户可自行篡改。爱豆账号则是数据库里的真实凭据（`idols.password_hash`，scrypt）。
 
 ## 技术栈
 
 - **Next.js 15**（App Router）+ **React 19** + **TypeScript**
 - **Tailwind CSS 3**
-- **Supabase**：Postgres（`messages` 单表）+ private Storage bucket `chat-media`，服务端用 `@supabase/supabase-js` 以 service role key 访问
+- **Supabase**：Postgres（`idols` + `messages` 两表）+ private Storage bucket `chat-media`，服务端用 `@supabase/supabase-js` 以 service role key 访问
 - `lucide-react` 图标
 - 部署面向 Vercel
 
 ## 目录结构（关键部分）
 
-- `app/page.tsx` — 访客聊天页（`ChatScreen`）
-- `app/admin/page.tsx` — 管理面板（`AdminPanel`）
-- `app/api/messages/route.ts` — 访客读取/发送消息
-- `app/api/admin/messages/route.ts` — 管理员发文字消息 / 删除（硬删除：先删 Storage 文件再删行）
-- `app/api/admin/upload/route.ts` — 管理员上传媒体（含 Motion Photo 拆分）
-- `app/api/admin/login`、`logout` — 管理员会话登录/登出
+- `app/page.tsx` — 访客入口（`VisitorApp`：发现页 `IdolDiscovery` / 聊天页 `ChatScreen`，用 `?idol=` 切换）
+- `app/idol/page.tsx` — 爱豆端（`IdolConsole` + `IdolComposer`，聊天式发布）
+- `app/admin/page.tsx` — 管理面板（`AdminPanel`，爱豆管理）
+- `app/api/idols/route.ts` — 公开列出启用的爱豆（发现页用）
+- `app/api/messages/route.ts` — 访客读取/发送消息（按 `idolId` 过滤/归属）
+- `app/api/idol/login`、`logout`、`me` — 爱豆会话
+- `app/api/idol/messages/route.ts` — 爱豆大群（GET）/ 发广播（POST）/ 删除（DELETE，限本频道）
+- `app/api/idol/upload/route.ts` — 爱豆上传媒体（含 Motion Photo 拆分，路径前缀 `idolId`）
+- `app/api/admin/idols/route.ts` — 爱豆 CRUD（GET/POST/PATCH/DELETE，需 admin）
+- `app/api/admin/login`、`logout` — 管理员会话
+- `app/api/admin/messages`、`upload`、`presign`、`record` — 旧管理端发布接口，已不被前端调用；仍保留且未传 `idolId` 时回退到默认爱豆 `asw`
 - `app/api/media/file/route.ts`、`signed-url/route.ts` — 通过短期 signed URL 代理私有媒体
 - `lib/supabaseAdmin.ts` — 服务端 Supabase client（service role）
-- `lib/adminAuth.ts` — 基于 HMAC-SHA256 签名 cookie 的管理员会话
-- `lib/visitor.ts` — 客户端访客身份 / 订阅 / 配额（localStorage）
+- `lib/adminAuth.ts` — 管理员会话（HMAC-SHA256 签名 cookie）
+- `lib/idolAuth.ts` — 爱豆会话（HMAC 签名，携带 `idolId`）+ 密码 scrypt 哈希/校验
+- `lib/idols.ts` — 服务端爱豆解析（含默认爱豆 `asw` 回退）
+- `lib/visitor.ts` — 客户端访客身份 / 订阅 / 配额（localStorage，按爱豆拆分）
 - `lib/media.ts`、`lib/motionPhoto.ts` — 媒体类型判断与 Motion Photo 拆分
-- `lib/types.ts` — 核心类型（`ChatMessage` 等）
-- `components/` — UI 组件（PhoneShell、ChatBubble、VoiceBubble、AdminPanel 等）
-- `supabase/schema.sql`、`supabase/motion-photo.sql` — 数据库 schema
+- `lib/types.ts` — 核心类型（`ChatMessage`、`Idol` 等）
+- `components/` — UI 组件（PhoneShell、ChatBubble、VoiceBubble、VisitorApp、IdolDiscovery、IdolConsole、IdolComposer、AdminPanel 等）
+- `supabase/schema.sql`、`supabase/motion-photo.sql`、`supabase/multi-idol.sql` — 数据库 schema
 
 ## 数据模型要点
 
-`messages` 单表承载所有消息，靠字段区分：
-- `sender_kind`：`admin`（公开）/ `user`（私信）
+`idols` 表：每个爱豆一行，管理员后台创建。字段 `handle`（唯一，登录名/URL）、`display_name`、`avatar_path`、`bio`、`password_hash`（scrypt `"<saltHex>:<hashHex>"`）、`is_active`。默认爱豆 `handle='asw'`（存量数据回填目标）。
+
+`messages` 表承载所有消息，靠字段区分：
+- `idol_id`（not null，外键 → `idols.id`，`on delete cascade`）：这条消息属于哪个爱豆频道
+- `sender_kind`：`admin`（爱豆广播，公开）/ `user`（粉丝私信）
 - `visibility`：`public` / `private`
 - `type`：`text | image | gif | voice | video | motion`
 - `media_path` / `motion_video_path` / `media_duration`
 - `is_deleted`：历史字段，现已改为硬删除（删消息时先删 Storage 文件再删行）；各读取查询的 `.eq("is_deleted", false)` 过滤保留无害。
 
-RLS 对 anon 角色全部拒绝，数据访问只能经由服务端 API（service role）。
+可见性规则：粉丝视图 = 某 `idol_id` 下「公开消息 + 自己 `visitor_id` 的私信」；爱豆视图（大群）= 某 `idol_id` 下全部消息。
+
+RLS 对 anon 角色全部拒绝（`idols`、`messages` 皆是），数据访问只能经由服务端 API（service role）。
 
 ## 环境变量（见 `.env.example`）
 
