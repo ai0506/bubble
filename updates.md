@@ -1,4 +1,4 @@
-[CodeX][260630122328] scaffolded Bubble-style MVP with local-only subscription, private user text messages, admin signed session cookie, admin media publishing, signed storage URLs, and phone chat UI
+﻿[CodeX][260630122328] scaffolded Bubble-style MVP with local-only subscription, private user text messages, admin signed session cookie, admin media publishing, signed storage URLs, and phone chat UI
 [CodeX][260630123421] updated site wording to asw's Bubble, changed subscribed status copy, and made Enter send messages with Ctrl+Enter for new lines
 [CodeX][260630123610] added Supabase publishable project env values, installed Supabase SSR package, and left service role/admin secrets for local server configuration
 [CodeX][260630124717] restarted dev server with Supabase secrets, created private chat-media bucket, and made message APIs tolerate missing database schema
@@ -20,7 +20,7 @@
 [CodeX][260630182020] add git ignore before uploading project to GitHub
 [CodeX][260630182054] keep Next.js generated type declaration in repository
 [CodeX][260630183817] add nickname 3-12 character validation and user message 300 character send-time limit
-[CodeX][260630185251] 修复新访客首次读取留言次数时把缺失值误判为 0，现在会初始化为 3 次
+[CodeX][260630185251] 淇鏂拌瀹㈤娆¤鍙栫暀瑷€娆℃暟鏃舵妸缂哄け鍊艰鍒や负 0锛岀幇鍦ㄤ細鍒濆鍖栦负 3 娆?
 [CodeX][260630185842] optimize admin interface with responsive desktop and mobile layouts
 [CodeX][260630190457] separate admin and received messages with in-page delete confirmation and portrait layout tweaks
 [CodeX][260630220811] added a simple chat-phone SVG favicon and registered it in site metadata
@@ -40,8 +40,8 @@
 [CodeX][260701154650] added and ran OSS migration script to copy existing Supabase Storage media objects to Alibaba Cloud OSS
 [CodeX][260701160734] changed chat media rendering to load direct signed OSS URLs so locally sent photos are visible outside localhost
 [CodeX][260701161743] changed media file route to redirect to OSS signed URLs and log detailed OSS signing errors
-[CodeX][260701193254] 修复订阅有效期显示读取真实过期时间
-[CodeX][260701194648] 动态照片预览在暂停和播放结束时回到封面图
-[CodeX][260701194945] 为动态照片预览增加加载状态和转圈动画
-[CodeX][260701195551] 上传失败时在偶像端显示服务端返回的具体错误
-[CodeX][260701195959] 记录上传 GitHub 时检查通过后自动合并的协作要求
+[CodeX][260701193254] 淇璁㈤槄鏈夋晥鏈熸樉绀鸿鍙栫湡瀹炶繃鏈熸椂闂?
+[CodeX][260701194648] 鍔ㄦ€佺収鐗囬瑙堝湪鏆傚仠鍜屾挱鏀剧粨鏉熸椂鍥炲埌灏侀潰鍥?
+[CodeX][260701194945] 涓哄姩鎬佺収鐗囬瑙堝鍔犲姞杞界姸鎬佸拰杞湀鍔ㄧ敾
+[CodeX][260701195551] 涓婁紶澶辫触鏃跺湪鍋跺儚绔樉绀烘湇鍔＄杩斿洖鐨勫叿浣撻敊璇?
+[CodeX][260701195959] 璁板綍涓婁紶 GitHub 鏃舵鏌ラ€氳繃鍚庤嚜鍔ㄥ悎骞剁殑鍗忎綔瑕佹眰
