@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { X, User, Play, Pause } from "lucide-react";
+import { X, User, Play, Pause, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { VoiceBubble } from "@/components/VoiceBubble";
 import { formatClock } from "@/lib/dates";
@@ -62,6 +62,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
   const [previewOpen, setPreviewOpen] = useState(false);
   const [motionPlaying, setMotionPlaying] = useState(false);
   const [motionPreviewReady, setMotionPreviewReady] = useState(false);
+  const [motionBuffering, setMotionBuffering] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const isSelf = message.sender_kind === selfKind; // 是否「我」发的（靠右）
   const isFan = message.sender_kind === "user"; // 粉丝消息（显示昵称 + 用户头像）
@@ -107,6 +108,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
   useEffect(() => {
     setMotionUrl("");
     setMotionPreviewReady(false);
+    setMotionBuffering(false);
     setMotionPlaying(false);
     if (message.type !== "motion" || !message.motion_video_path) {
       return;
@@ -119,6 +121,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
     const controller = new AbortController();
     setMotionUrl("");
     setMotionPreviewReady(false);
+    setMotionBuffering(true);
     setMotionPlaying(false);
 
     async function loadMotionUrl() {
@@ -136,8 +139,13 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
       }
     }
 
-    void loadMotionUrl().catch(() => undefined);
-    return () => controller.abort();
+    void loadMotionUrl().catch(() => {
+      if (!controller.signal.aborted) setMotionBuffering(false);
+    });
+    return () => {
+      controller.abort();
+      setMotionBuffering(false);
+    };
   }, [previewOpen, message.type, message.motion_video_path]);
 
   useEffect(() => {
@@ -149,16 +157,17 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
       void video.play();
     } else {
       video.pause();
-      video.currentTime = 0.001;
+      video.currentTime = 0;
     }
   }, [motionPlaying, motionPreviewReady]);
 
   useEffect(() => {
     if (previewOpen) {
       setMotionPreviewReady(false);
+      setMotionBuffering(Boolean(message.type === "motion" && message.motion_video_path));
       setMotionPlaying(false);
     }
-  }, [previewOpen, motionUrl]);
+  }, [previewOpen, motionUrl, message.type, message.motion_video_path]);
 
   function closePreview() {
     setPreviewOpen(false);
@@ -174,6 +183,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
   // 纯视频实况（没有封面静态图）时，尺寸等 video 元数据加载后再知道
   const motionVideoOnly = isMotion && !message.media_path;
   const hasChatPreview = Boolean(mediaUrl) || motionVideoOnly;
+  const showMotionLoading = isMotion && previewOpen && (!motionPreviewReady || motionBuffering);
 
   return (
     <div className="px-3 py-1.5">
@@ -275,10 +285,23 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
                           className="relative flex items-center justify-center overflow-hidden rounded-2xl"
                           style={{ width: "min(78vw, 360px)", height: "min(calc(100vh - 10rem), 480px)" }}
                         >
-                          {!motionPreviewReady ? (
-                            <div className="absolute inset-0 flex items-center justify-center bg-white/10 text-white/70">
-                              <Play size={32} className="fill-current" />
+                          {showMotionLoading ? (
+                            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/20 text-white">
+                              <LoaderCircle size={34} className="animate-spin" />
                             </div>
+                          ) : null}
+                          {mediaUrl && !motionPlaying ? (
+                            <img
+                              src={mediaUrl}
+                              alt={PREVIEW_ALT}
+                              width={1200}
+                              height={900}
+                              loading="eager"
+                              decoding="async"
+                              draggable={false}
+                              className="absolute inset-0 block h-full w-full select-none object-contain"
+                              style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+                            />
                           ) : null}
                           <video
                             ref={previewVideoRef}
@@ -288,30 +311,49 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
                             disablePictureInPicture
                             controlsList="nodownload nofullscreen noremoteplayback"
                             onLoadedMetadata={(event) => {
-                              event.currentTarget.currentTime = 0.001;
+                              event.currentTarget.currentTime = 0;
                             }}
                             onLoadedData={() => {
                               setMotionPreviewReady(true);
+                              setMotionBuffering(false);
                               onMediaReady?.();
                             }}
                             onCanPlay={() => {
                               setMotionPreviewReady(true);
+                              setMotionBuffering(false);
                               onMediaReady?.();
                             }}
+                            onWaiting={() => setMotionBuffering(true)}
+                            onPlaying={() => setMotionBuffering(false)}
                             onEnded={() => setMotionPlaying(false)}
                             onContextMenu={(event) => event.preventDefault()}
                             className={`block h-full w-full select-none object-contain ${
-                              motionPreviewReady ? "visible" : "invisible"
+                              motionPreviewReady && (!mediaUrl || motionPlaying) ? "visible" : "invisible"
                             }`}
                             style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
                           />
                         </div>
                       ) : isMotion ? (
                         <div
-                          className="flex items-center justify-center rounded-2xl bg-white/10 text-white/70"
+                          className="relative flex items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-white/70"
                           style={{ width: "min(78vw, 360px)", height: "min(calc(100vh - 10rem), 480px)" }}
                         >
-                          <Play size={32} className="fill-current" />
+                          {mediaUrl ? (
+                            <img
+                              src={mediaUrl}
+                              alt={PREVIEW_ALT}
+                              width={1200}
+                              height={900}
+                              loading="eager"
+                              decoding="async"
+                              draggable={false}
+                              className="absolute inset-0 block h-full w-full select-none object-contain"
+                              style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+                            />
+                          ) : null}
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20 text-white">
+                            <LoaderCircle size={34} className="animate-spin" />
+                          </div>
                         </div>
                       ) : mediaUrl ? (
                         <img
@@ -340,11 +382,23 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
                     >
                       <button
                         type="button"
-                        onClick={() => setMotionPlaying((prev) => !prev)}
-                        className="flex items-center gap-2 rounded-full bg-white/15 px-6 py-2.5 text-sm font-medium text-white backdrop-blur transition active:bg-white/25"
+                        onClick={() => {
+                          if (!motionPreviewReady) return;
+                          setMotionPlaying((prev) => !prev);
+                        }}
+                        disabled={!motionPreviewReady}
+                        className="flex items-center gap-2 rounded-full bg-white/15 px-6 py-2.5 text-sm font-medium text-white backdrop-blur transition active:bg-white/25 disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label={PLAY_MOTION_LABEL}
                       >
-                        {motionPlaying ? <Pause size={16} className="fill-current" /> : <Play size={16} className="fill-current" />}
+                        {motionPreviewReady ? (
+                          motionPlaying ? (
+                            <Pause size={16} className="fill-current" />
+                          ) : (
+                            <Play size={16} className="fill-current" />
+                          )
+                        ) : (
+                          <LoaderCircle size={16} className="animate-spin" />
+                        )}
                         {motionPlaying ? "暂停" : "播放实况"}
                       </button>
                     </div>
