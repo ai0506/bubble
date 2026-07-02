@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChatBubble } from "@/components/ChatBubble";
 import { DateDivider } from "@/components/DateDivider";
 import { IdolComposer } from "@/components/IdolComposer";
+import { compressImageForUpload } from "@/lib/clientImageCompression";
 import { formatDateDivider } from "@/lib/dates";
 import type { ChatMessage, Idol } from "@/lib/types";
 
@@ -164,7 +165,10 @@ export function IdolConsole() {
   async function putSignedObject(url: string, file: File, contentType: string) {
     const response = await fetch(url, {
       method: "PUT",
-      headers: { "Content-Type": contentType },
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
       body: file,
     });
     if (!response.ok) {
@@ -174,12 +178,13 @@ export function IdolConsole() {
   }
 
   async function uploadMotionDirect(formData: FormData) {
-    const file = formData.get("file");
+    let file = formData.get("file");
     const motionVideo = formData.get("motionVideo");
     if (!(file instanceof File) || !(motionVideo instanceof File)) {
       throw new Error("实况照片需要同时选择封面图和动态视频");
     }
 
+    file = await compressImageForUpload(file);
     const stillContentType = file.type || "image/jpeg";
     const videoContentType = motionVideo.type || "video/mp4";
     const presignResponse = await fetch("/api/idol/presign", {
@@ -226,6 +231,12 @@ export function IdolConsole() {
   }
 
   async function upload(formData: FormData) {
+    const type = String(formData.get("type") || "");
+    const file = formData.get("file");
+    if ((type === "image" || type === "motion") && file instanceof File) {
+      formData.set("file", await compressImageForUpload(file));
+    }
+
     if (formData.get("type") === "motion") {
       await uploadMotionDirect(formData);
       await loadMessages();
@@ -263,7 +274,7 @@ export function IdolConsole() {
     try {
       const formData = new FormData();
       if (displayName && displayName !== idol?.display_name) formData.append("displayName", displayName);
-      if (profileAvatarFile) formData.append("avatar", profileAvatarFile);
+      if (profileAvatarFile) formData.append("avatar", await compressImageForUpload(profileAvatarFile));
       if ([...formData.keys()].length === 0) {
         setEditingProfile(false);
         return;

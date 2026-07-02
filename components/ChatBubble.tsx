@@ -18,6 +18,9 @@ const ADMIN_AVATAR_ALT = "\u7231\u8c46\u5934\u50cf"; // \u7231\u8c46\u5934\u50cf
 const SHOW_TRANSCRIPT_LABEL = "转文字";
 const HIDE_TRANSCRIPT_LABEL = "收起";
 const IMAGE_BOX_SIZE = { width: 240, height: 180 };
+const SIGNED_URL_CACHE_TTL_MS = 55 * 60 * 1000;
+
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 type ChatBubbleProps = {
   message: ChatMessage;
@@ -26,6 +29,32 @@ type ChatBubbleProps = {
   // 哪一方算「我」（气泡靠右）。粉丝端 = user（默认），爱豆端大群 = admin。
   selfKind?: MessageSenderKind;
 };
+
+function mediaCacheKey(mediaPath: string, width?: number) {
+  return `${mediaPath}:${width || ""}`;
+}
+
+async function getSignedMediaUrl(mediaPath: string, width?: number, signal?: AbortSignal) {
+  const key = mediaCacheKey(mediaPath, width);
+  const cached = signedUrlCache.get(key);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) return cached.url;
+
+  const response = await fetch("/api/media/signed-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mediaPath, width }),
+    signal,
+  });
+  if (!response.ok) return "";
+
+  const data = (await response.json()) as { url?: string };
+  const url = data.url || "";
+  if (url) {
+    signedUrlCache.set(key, { url, expiresAt: now + SIGNED_URL_CACHE_TTL_MS });
+  }
+  return url;
+}
 
 function UserAvatar() {
   return (
@@ -80,23 +109,10 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
       }
 
       const isStillImage = message.type === "image" || message.type === "gif" || message.type === "motion";
-      const mediaWidth = isStillImage ? String(IMAGE_BOX_SIZE.width * 2) : "";
-      const response = await fetch("/api/media/signed-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mediaPath: message.media_path,
-          width: mediaWidth ? Number(mediaWidth) : undefined,
-        }),
-      });
-      if (!response.ok) {
-        if (!cancelled) setMediaUrl("");
-        return;
-      }
-
-      const data = (await response.json()) as { url?: string };
+      const mediaWidth = isStillImage ? IMAGE_BOX_SIZE.width * 2 : undefined;
+      const url = await getSignedMediaUrl(message.media_path, mediaWidth);
       if (!cancelled) {
-        setMediaUrl(data.url || "");
+        setMediaUrl(url);
       }
     }
 
@@ -106,7 +122,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
     return () => {
       cancelled = true;
     };
-  }, [message.media_path, message.type, onMediaReady]);
+  }, [message.media_path, message.type]);
 
   useEffect(() => {
     setMotionUrl("");
@@ -128,17 +144,9 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
     setMotionPlaying(false);
 
     async function loadMotionUrl() {
-      const response = await fetch("/api/media/signed-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaPath: message.motion_video_path }),
-        signal: controller.signal,
-      });
-      if (!response.ok) return;
-
-      const data = (await response.json()) as { url?: string };
-      if (!controller.signal.aborted && data.url) {
-        setMotionUrl(data.url);
+      const url = await getSignedMediaUrl(message.motion_video_path || "", undefined, controller.signal);
+      if (!controller.signal.aborted && url) {
+        setMotionUrl(url);
       }
     }
 

@@ -53,3 +53,4 @@
 [CodeX][260702122207] clarify voice transcript edit as new PATCH and UI work
 [CodeX][260702123045] implement manual voice transcript upload display and edit
 [CodeX][260702124429] move voice transcript button outside voice bubble
+[CodeX][260702154640] reduce OSS traffic with upload compression and media URL caching
