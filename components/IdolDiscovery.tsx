@@ -5,9 +5,9 @@ import { useState } from "react";
 import type { Idol } from "@/lib/types";
 
 const DEFAULT_SITE_NAME = "asw的Bubble";
-const TITLE = "选择爱豆";
+const TITLE = "选择订阅的目标";
 const SUBTITLE = "订阅后即可查看 TA 的消息并留言";
-const EMPTY = "还没有爱豆";
+const EMPTY = "暂无可订阅的对象";
 
 type IdolDiscoveryProps = {
   idols: Idol[];
