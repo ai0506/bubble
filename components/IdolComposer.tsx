@@ -23,6 +23,7 @@ const TEXT = {
   durationPending: "识别时长中...",
   durationReady: "时长",
   durationFailed: "未能识别时长，仍可发布",
+  transcriptPlaceholder: "音频文字稿（可选，用户点“转文字”后看到）",
 };
 
 // 可作为附件的媒体类型（文字走 send 按钮）
@@ -49,6 +50,7 @@ export function IdolComposer({ disabled, onSendText, onUpload }: IdolComposerPro
   const [motionVideoFile, setMotionVideoFile] = useState<File | null>(null);
   const [duration, setDuration] = useState("");
   const [durationStatus, setDurationStatus] = useState("");
+  const [voiceTranscript, setVoiceTranscript] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -61,6 +63,7 @@ export function IdolComposer({ disabled, onSendText, onUpload }: IdolComposerPro
     setMotionVideoFile(null);
     setDuration("");
     setDurationStatus("");
+    setVoiceTranscript("");
   }
 
   function chooseType(nextType: Exclude<MessageType, "text" | "video">) {
@@ -70,6 +73,7 @@ export function IdolComposer({ disabled, onSendText, onUpload }: IdolComposerPro
     setFile(null);
     setMotionVideoFile(null);
     setDuration("");
+    setVoiceTranscript("");
     setDurationStatus(nextType === "voice" ? TEXT.durationPending : "");
   }
 
@@ -139,7 +143,10 @@ export function IdolComposer({ disabled, onSendText, onUpload }: IdolComposerPro
         formData.append("motionVideo", motionVideoFile as File);
       } else {
         formData.append("file", file as File);
-        if (pendingType === "voice" && duration) formData.append("mediaDuration", duration);
+        if (pendingType === "voice") {
+          if (duration) formData.append("mediaDuration", duration);
+          formData.append("voiceTranscript", voiceTranscript);
+        }
       }
       await onUpload(formData);
       setText("");
@@ -214,6 +221,16 @@ export function IdolComposer({ disabled, onSendText, onUpload }: IdolComposerPro
             </label>
           )}
           {pendingType === "voice" && durationStatus ? <p className="px-1 text-[11px] text-slate-500">{durationStatus}</p> : null}
+          {pendingType === "voice" ? (
+            <textarea
+              value={voiceTranscript}
+              onChange={(event) => setVoiceTranscript(event.target.value)}
+              disabled={blocked}
+              rows={3}
+              className="max-h-28 min-h-20 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-500 disabled:bg-slate-100"
+              placeholder={TEXT.transcriptPlaceholder}
+            />
+          ) : null}
         </div>
       ) : null}
 

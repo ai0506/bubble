@@ -14,6 +14,7 @@ export type ChatMessage = {
   media_path: string | null;
   motion_video_path: string | null;
   media_duration: number | null;
+  voice_transcript: string | null;
   created_at: string;
   is_deleted: boolean;
 };

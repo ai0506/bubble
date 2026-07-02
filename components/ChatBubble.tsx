@@ -15,6 +15,8 @@ const CLOSE_PREVIEW_LABEL = "\u5173\u95ed\u56fe\u7247\u9884\u89c8";
 const LIVE_LABEL = "\u5b9e\u51b5"; // \u5b9e\u51b5
 const PLAY_MOTION_LABEL = "\u64ad\u653e\u5b9e\u51b5\u89c6\u9891"; // \u64ad\u653e\u5b9e\u51b5\u89c6\u9891
 const ADMIN_AVATAR_ALT = "\u7231\u8c46\u5934\u50cf"; // \u7231\u8c46\u5934\u50cf
+const SHOW_TRANSCRIPT_LABEL = "转文字";
+const HIDE_TRANSCRIPT_LABEL = "收起";
 const IMAGE_BOX_SIZE = { width: 240, height: 180 };
 
 type ChatBubbleProps = {
@@ -63,6 +65,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
   const [motionPlaying, setMotionPlaying] = useState(false);
   const [motionPreviewReady, setMotionPreviewReady] = useState(false);
   const [motionBuffering, setMotionBuffering] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const isSelf = message.sender_kind === selfKind; // 是否「我」发的（靠右）
   const isFan = message.sender_kind === "user"; // 粉丝消息（显示昵称 + 用户头像）
@@ -184,6 +187,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
   const motionVideoOnly = isMotion && !message.media_path;
   const hasChatPreview = Boolean(mediaUrl) || motionVideoOnly;
   const showMotionLoading = isMotion && previewOpen && (!motionPreviewReady || motionBuffering);
+  const voiceTranscript = message.voice_transcript?.trim() || "";
 
   return (
     <div className="px-3 py-1.5">
@@ -411,12 +415,31 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
           ) : null}
 
           {message.type === "voice" ? (
-            <div className={`rounded-2xl px-3 py-2 shadow-sm ${cornerClass} ${isSelf ? "bg-user" : "bg-white"}`}>
-              {mediaUrl ? (
-                <VoiceBubble url={mediaUrl} duration={message.media_duration} onReady={onMediaReady} />
-              ) : (
-                <div className="h-12 w-56 animate-pulse rounded-xl bg-slate-200" />
-              )}
+            <div className="flex items-start gap-2">
+              <div className={`rounded-2xl px-3 py-2 shadow-sm ${cornerClass} ${isSelf ? "bg-user" : "bg-white"}`}>
+                {mediaUrl ? (
+                  <>
+                    <VoiceBubble url={mediaUrl} duration={message.media_duration} onReady={onMediaReady} />
+                    {voiceTranscript && transcriptOpen ? (
+                      <p className="mt-2 max-w-72 whitespace-pre-wrap break-words border-t border-black/5 pt-2 text-sm leading-6 text-slate-700">
+                        {voiceTranscript}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="h-12 w-56 animate-pulse rounded-xl bg-slate-200" />
+                )}
+              </div>
+              {mediaUrl && voiceTranscript ? (
+                <button
+                  type="button"
+                  onClick={() => setTranscriptOpen((prev) => !prev)}
+                  className="mt-2 h-8 shrink-0 rounded-full bg-white/80 px-2.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-white"
+                  aria-expanded={transcriptOpen}
+                >
+                  {transcriptOpen ? HIDE_TRANSCRIPT_LABEL : SHOW_TRANSCRIPT_LABEL}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>

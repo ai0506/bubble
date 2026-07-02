@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     motionVideoPath?: string;
     mediaDuration?: number;
     contentText?: string;
+    voiceTranscript?: string;
   } | null;
 
   const type = body?.type;
@@ -23,6 +24,9 @@ export async function POST(request: NextRequest) {
   const mediaDuration = body?.mediaDuration ?? null;
   const contentText = typeof body?.contentText === "string"
     ? body.contentText.trim().slice(0, 1000) || null
+    : null;
+  const voiceTranscript = typeof body?.voiceTranscript === "string"
+    ? body.voiceTranscript.trim().slice(0, 2000) || null
     : null;
 
   if (!type) return Response.json({ error: "type is required" }, { status: 400 });
@@ -39,6 +43,7 @@ export async function POST(request: NextRequest) {
       media_path: mediaPath,
       motion_video_path: motionVideoPath,
       media_duration: type === "voice" ? mediaDuration : null,
+      voice_transcript: type === "voice" ? voiceTranscript : null,
     })
     .select("*")
     .single();

@@ -49,3 +49,7 @@
 [CodeX][260701201407] 修复 updates.md 中已乱码的中文流水并保持 UTF-8
 [CodeX][260701201724] 将偶像端实况照片改为浏览器直传 OSS 后再记录消息
 [CodeX][260701203024] 配置 OSS CORS 允许浏览器直传实况照片文件
+[CodeX][260702121915] add initial plan for voice transcript feature
+[CodeX][260702122207] clarify voice transcript edit as new PATCH and UI work
+[CodeX][260702123045] implement manual voice transcript upload display and edit
+[CodeX][260702124429] move voice transcript button outside voice bubble

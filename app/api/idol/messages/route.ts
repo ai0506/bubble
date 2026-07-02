@@ -64,6 +64,58 @@ export async function POST(request: Request) {
   return Response.json({ message: data });
 }
 
+// 只允许爱豆修改自己语音消息的文字稿，不开放通用消息编辑。
+export async function PATCH(request: Request) {
+  const session = await requireIdol();
+  if (session instanceof Response) return session;
+
+  const body = (await request.json().catch(() => null)) as {
+    id?: string;
+    voiceTranscript?: string;
+  } | null;
+  const id = normalizeText(body?.id, 80);
+  const voiceTranscript = normalizeText(body?.voiceTranscript, 2000) || null;
+  if (!id) {
+    return Response.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: message, error: fetchError } = await supabase
+    .from("messages")
+    .select("id,idol_id,sender_kind,type")
+    .eq("id", id)
+    .eq("idol_id", session.idolId)
+    .maybeSingle();
+
+  if (fetchError) {
+    if (isMissingMessagesTable(fetchError)) {
+      return Response.json({ error: "Database schema has not been applied yet." }, { status: 503 });
+    }
+    return Response.json({ error: fetchError.message }, { status: 500 });
+  }
+
+  if (!message) {
+    return Response.json({ error: "Message not found" }, { status: 404 });
+  }
+  if (message.sender_kind !== "admin" || message.type !== "voice") {
+    return Response.json({ error: "Only idol voice messages can be updated" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("messages")
+    .update({ voice_transcript: voiceTranscript })
+    .eq("id", id)
+    .eq("idol_id", session.idolId)
+    .select("*")
+    .single();
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  return Response.json({ message: data });
+}
+
 // 删除本频道内的消息（自己的广播或粉丝私信均可），强制限定 idol_id 防跨频道删除。
 export async function DELETE(request: Request) {
   const session = await requireIdol();
