@@ -15,6 +15,7 @@ create table public.messages (
   media_path text,
   motion_video_path text,
   media_duration integer,
+  voice_transcript text,
   created_at timestamptz not null default now(),
   is_deleted boolean not null default false,
 

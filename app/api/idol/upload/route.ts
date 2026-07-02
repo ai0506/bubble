@@ -4,6 +4,10 @@ import { allowedAdminUpload, extensionFromName, inferMessageType } from "@/lib/m
 import { deleteObjects, uploadObject } from "@/lib/objectStorage";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
+function normalizeOptionalText(value: FormDataEntryValue | null, maxLength: number) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) || null : null;
+}
+
 export async function POST(request: Request) {
   const session = await requireIdol();
   if (session instanceof Response) return session;
@@ -11,7 +15,8 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const requestedType = formData.get("type");
-  const contentText = String(formData.get("contentText") || "").trim().slice(0, 1000) || null;
+  const contentText = normalizeOptionalText(formData.get("contentText"), 1000);
+  const voiceTranscript = normalizeOptionalText(formData.get("voiceTranscript"), 2000);
   const supabase = getSupabaseAdmin();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -95,6 +100,7 @@ export async function POST(request: Request) {
       content_text: contentText,
       media_path: mediaPath,
       media_duration: type === "voice" ? mediaDuration : null,
+      voice_transcript: type === "voice" ? voiceTranscript : null,
     })
     .select("*")
     .single();

@@ -75,6 +75,58 @@ export async function POST(request: NextRequest) {
   return Response.json({ message: data });
 }
 
+export async function PATCH(request: NextRequest) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
+  const body = (await request.json().catch(() => null)) as {
+    id?: string;
+    voiceTranscript?: string;
+  } | null;
+  const id = normalizeText(body?.id, 80);
+  const voiceTranscript = normalizeText(body?.voiceTranscript, 2000) || null;
+  if (!id) {
+    return Response.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: message, error: fetchError } = await supabase
+    .from("messages")
+    .select("id,sender_kind,type")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError) {
+    if (isMissingMessagesTable(fetchError)) {
+      return Response.json({ error: "Database schema has not been applied yet." }, { status: 503 });
+    }
+    return Response.json({ error: fetchError.message }, { status: 500 });
+  }
+
+  if (!message) {
+    return Response.json({ error: "Message not found" }, { status: 404 });
+  }
+  if (message.sender_kind !== "admin" || message.type !== "voice") {
+    return Response.json({ error: "Only idol voice messages can be updated" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("messages")
+    .update({ voice_transcript: voiceTranscript })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    if (isMissingMessagesTable(error)) {
+      return Response.json({ error: "Database schema has not been applied yet." }, { status: 503 });
+    }
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  return Response.json({ message: data });
+}
+
 export async function DELETE(request: NextRequest) {
   const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;

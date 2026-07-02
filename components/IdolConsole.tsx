@@ -34,6 +34,10 @@ const TEXT = {
   changeAvatar: "更换头像",
   save: "保存",
   saveFailed: "保存失败",
+  editTranscript: "编辑文字稿",
+  transcriptTitle: "编辑语音文字稿",
+  transcriptPlaceholder: "填写用户点击“转文字”后看到的内容",
+  transcriptHint: "清空并保存后，用户端不再显示“转文字”按钮。",
 };
 
 export function IdolConsole() {
@@ -53,6 +57,10 @@ export function IdolConsole() {
   const [profileError, setProfileError] = useState("");
   const [profileBusy, setProfileBusy] = useState(false);
   const [avatarVersion, setAvatarVersion] = useState(0);
+  const [editingTranscript, setEditingTranscript] = useState<ChatMessage | null>(null);
+  const [transcriptValue, setTranscriptValue] = useState("");
+  const [transcriptError, setTranscriptError] = useState("");
+  const [transcriptBusy, setTranscriptBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -297,6 +305,37 @@ export function IdolConsole() {
     }
   }
 
+  function openTranscriptEditor(message: ChatMessage) {
+    setEditingTranscript(message);
+    setTranscriptValue(message.voice_transcript || "");
+    setTranscriptError("");
+  }
+
+  async function saveTranscript() {
+    if (!editingTranscript) return;
+    setTranscriptBusy(true);
+    setTranscriptError("");
+    try {
+      const response = await fetch("/api/idol/messages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingTranscript.id,
+          voiceTranscript: transcriptValue,
+        }),
+      });
+      if (!response.ok) {
+        setTranscriptError(await readApiError(response, TEXT.saveFailed));
+        return;
+      }
+      setEditingTranscript(null);
+      setTranscriptValue("");
+      await loadMessages();
+    } finally {
+      setTranscriptBusy(false);
+    }
+  }
+
   if (authed === null) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-slate-500">{TEXT.checking}</div>
@@ -419,15 +458,28 @@ export function IdolConsole() {
                   selfKind="admin"
                   onMediaReady={() => scrollToBottom("auto")}
                 />
-                <button
-                  type="button"
-                  onClick={() => setPendingDelete(message)}
-                  className="absolute right-2 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-slate-400 opacity-0 shadow-sm transition group-hover:opacity-100 focus:opacity-100"
-                  aria-label={TEXT.deleteMessage}
-                  title={TEXT.deleteMessage}
-                >
-                  <Trash2 size={13} />
-                </button>
+                <div className="absolute right-2 top-1 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+                  {message.sender_kind === "admin" && message.type === "voice" ? (
+                    <button
+                      type="button"
+                      onClick={() => openTranscriptEditor(message)}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-slate-400 shadow-sm transition hover:text-slate-600 focus:opacity-100"
+                      aria-label={TEXT.editTranscript}
+                      title={TEXT.editTranscript}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setPendingDelete(message)}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-slate-400 shadow-sm transition hover:text-slate-600 focus:opacity-100"
+                    aria-label={TEXT.deleteMessage}
+                    title={TEXT.deleteMessage}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -533,6 +585,58 @@ export function IdolConsole() {
                 type="button"
                 onClick={() => void saveProfile()}
                 disabled={profileBusy || !profileDisplayName.trim()}
+                className="h-11 rounded-full bg-ink text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-300"
+              >
+                {TEXT.save}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editingTranscript ? (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 px-5">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold">{TEXT.transcriptTitle}</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500">{TEXT.transcriptHint}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTranscript(null)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+                aria-label={TEXT.cancel}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <textarea
+              value={transcriptValue}
+              onChange={(event) => {
+                setTranscriptValue(event.target.value);
+                setTranscriptError("");
+              }}
+              rows={6}
+              className="mt-4 max-h-52 min-h-32 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 outline-none focus:border-slate-500"
+              placeholder={TEXT.transcriptPlaceholder}
+            />
+
+            {transcriptError ? <p className="mt-2 text-sm text-rose-600">{transcriptError}</p> : null}
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setEditingTranscript(null)}
+                className="h-11 rounded-full bg-slate-100 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                {TEXT.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveTranscript()}
+                disabled={transcriptBusy}
                 className="h-11 rounded-full bg-ink text-sm font-semibold text-white transition hover:bg-slate-800 disabled:bg-slate-300"
               >
                 {TEXT.save}
