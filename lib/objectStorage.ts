@@ -17,6 +17,8 @@ export type SignedReadUrlInput = {
 
 type Provider = "oss" | "supabase";
 
+export const MEDIA_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
 function env(...names: string[]) {
   for (const name of names) {
     const value = process.env[name]?.trim();
@@ -72,6 +74,7 @@ export async function uploadObject(input: UploadObjectInput): Promise<void> {
       .from("chat-media")
       .upload(input.key, input.file, {
         contentType: input.contentType || "application/octet-stream",
+        cacheControl: "31536000",
         upsert: false,
       });
     if (error) throw new Error(error.message);
@@ -81,6 +84,7 @@ export async function uploadObject(input: UploadObjectInput): Promise<void> {
   await getOssClient().put(input.key, await toBuffer(input.file), {
     headers: {
       "Content-Type": input.contentType || "application/octet-stream",
+      "Cache-Control": MEDIA_CACHE_CONTROL,
     },
   });
 }

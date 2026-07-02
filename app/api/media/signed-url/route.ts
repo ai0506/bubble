@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   try {
     const url = await createSignedReadUrl({
       key: mediaPath,
-      expiresInSeconds: 60 * 10,
+      expiresInSeconds: 60 * 60,
       contentTypeHint: width ? "image" : undefined,
     });
     return Response.json({ url });
