@@ -41,6 +41,8 @@
 - `lib/media.ts`、`lib/motionPhoto.ts` — 媒体类型判断与 Motion Photo 拆分
 - `lib/types.ts` — 核心类型（`ChatMessage`、`Idol` 等）
 - `components/` — UI 组件（PhoneShell、ChatBubble、VoiceBubble、VisitorApp、IdolDiscovery、IdolConsole、IdolComposer、AdminPanel 等）
+- `scripts/` — OSS 迁移 / CORS 配置 / 图片压缩等一次性运维脚本
+- `docs/` — 历史技术方案文档（多爱豆改造、迁移 OSS、语音转文字等，功能均已合并，仅供追溯）
 - `supabase/schema.sql`、`supabase/motion-photo.sql`、`supabase/multi-idol.sql` — 数据库 schema
 
 ## 数据模型要点

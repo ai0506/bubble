@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "migrate:oss": "node scripts/migrate-supabase-storage-to-oss.mjs",
+    "oss:compress": "node scripts/compress-oss-images.mjs",
     "oss:cors": "node scripts/configure-oss-cors.mjs",
     "lint": "eslint ."
   },
