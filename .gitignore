@@ -32,3 +32,6 @@ Thumbs.db
 .codex-remote-attachments/
 
 .vercel
+
+# 改动日志，仅本地记录，不再纳入版本控制
+updates.md
