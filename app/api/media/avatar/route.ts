@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     signedUrl = await createSignedReadUrl({
       key: idol.avatar_path,
       expiresInSeconds: 60 * 60,
-      contentTypeHint: "image",
+      // 头像最大显示 ~44px，按 3x 取 144 足够，避免下发原图
+      resizeWidth: 144,
     });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Create signed URL failed" }, { status: 500 });

@@ -12,7 +12,8 @@ export type UploadObjectInput = {
 export type SignedReadUrlInput = {
   key: string;
   expiresInSeconds: number;
-  contentTypeHint?: string;
+  // OSS 图片处理：按宽度缩略（默认只缩不放大）。Supabase provider 忽略，返回原图。
+  resizeWidth?: number;
 };
 
 type Provider = "oss" | "supabase";
@@ -115,9 +116,13 @@ export async function createSignedReadUrl(input: SignedReadUrlInput): Promise<st
     return data.signedUrl;
   }
 
+  // 缩略图交给 OSS 图片处理，避免下发原图（image/resize 默认 limit_1，只缩不放大）
+  const process =
+    input.resizeWidth && input.resizeWidth > 0 ? `image/resize,w_${Math.round(input.resizeWidth)}` : undefined;
   return getOssClient().signatureUrl(input.key, {
     expires: input.expiresInSeconds,
     method: "GET",
+    process,
   });
 }
 

@@ -8,6 +8,7 @@ import { DateDivider } from "@/components/DateDivider";
 import { NicknameModal } from "@/components/NicknameModal";
 import { SubscribeOverlay } from "@/components/SubscribeOverlay";
 import { formatDateDivider } from "@/lib/dates";
+import { getMessagesSignature } from "@/lib/messageSignature";
 import type { ChatMessage, Idol } from "@/lib/types";
 import {
   activateOneYearSubscription,
@@ -35,22 +36,6 @@ function getLatestAdminMessageId(messages: ChatMessage[]) {
     }
   }
   return null;
-}
-
-function getMessagesSignature(messages: ChatMessage[]) {
-  return messages
-    .map((message) =>
-      [
-        message.id,
-        message.created_at,
-        message.type,
-        message.content_text || "",
-        message.media_path || "",
-        message.motion_video_path || "",
-        message.is_deleted ? "1" : "0",
-      ].join(":"),
-    )
-    .join("|");
 }
 
 function formatSubscriptionExpiresLabel(expiresAt: string | null) {
@@ -87,6 +72,9 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     bottomRef.current?.scrollIntoView({ behavior, block: "end" });
   }, []);
+
+  // 稳定引用，供 memo 化的 ChatBubble 复用（内联箭头会破坏 memo）
+  const handleMediaReady = useCallback(() => scrollToBottom("auto"), [scrollToBottom]);
 
   const loadMessages = useCallback(
     async (id: string) => {
@@ -125,10 +113,20 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
     if (!visitorId) return;
 
     const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
       void loadMessages(visitorId);
     }, 15_000);
 
-    return () => window.clearInterval(timer);
+    // 页面从后台切回前台时立即拉一次，避免等下一个轮询周期
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void loadMessages(visitorId);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [loadMessages, visitorId]);
 
   async function sendPrivateMessage(text: string) {
@@ -205,7 +203,7 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
             return (
               <div key={message.id}>
                 {showDivider ? <DateDivider label={divider} /> : null}
-                <ChatBubble message={message} viewerName={nickname} onMediaReady={() => scrollToBottom("auto")} />
+                <ChatBubble message={message} viewerName={nickname} onMediaReady={handleMediaReady} />
               </div>
             );
           })}

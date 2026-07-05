@@ -60,13 +60,14 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "Media not found" }, { status: 404 });
   }
 
-  const isImage = /\.(gif|png|jpe?g|webp)$/i.test(mediaPath);
+  // 仅对静态位图缩略；GIF 不处理以保留动图
+  const isResizable = /\.(png|jpe?g|webp)$/i.test(mediaPath);
   let signedUrl: string;
   try {
     signedUrl = await createSignedReadUrl({
       key: mediaPath,
       expiresInSeconds: 60 * 60,
-      contentTypeHint: width && isImage ? "image" : undefined,
+      resizeWidth: width && isResizable ? width : undefined,
     });
   } catch (error) {
     logOssError(error, mediaPath);
