@@ -6,6 +6,8 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { mediaPath?: string; width?: number } | null;
   const mediaPath = typeof body?.mediaPath === "string" ? body.mediaPath.trim() : "";
   const width = typeof body?.width === "number" && body.width > 0 ? Math.min(Math.round(body.width), 900) : null;
+  // 仅对静态位图缩略；GIF 不处理以保留动图
+  const isResizable = /\.(png|jpe?g|webp)$/i.test(mediaPath);
 
   if (!mediaPath) {
     return Response.json({ error: "mediaPath is required" }, { status: 400 });
@@ -43,7 +45,7 @@ export async function POST(request: Request) {
     const url = await createSignedReadUrl({
       key: mediaPath,
       expiresInSeconds: 60 * 60,
-      contentTypeHint: width ? "image" : undefined,
+      resizeWidth: width && isResizable ? width : undefined,
     });
     return Response.json({ url });
   } catch (error) {

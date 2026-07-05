@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { X, User, Play, Pause, LoaderCircle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { VoiceBubble } from "@/components/VoiceBubble";
 import { formatClock } from "@/lib/dates";
 import type { ChatMessage, MessageSenderKind } from "@/lib/types";
@@ -87,7 +87,7 @@ function AdminAvatar({ idolId }: { idolId: string }) {
   );
 }
 
-export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user" }: ChatBubbleProps) {
+function ChatBubbleComponent({ message, viewerName, onMediaReady, selfKind = "user" }: ChatBubbleProps) {
   const [mediaUrl, setMediaUrl] = useState("");
   const [motionUrl, setMotionUrl] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -459,3 +459,7 @@ export function ChatBubble({ message, viewerName, onMediaReady, selfKind = "user
     </div>
   );
 }
+
+// 列表轮询后仅变化的气泡需要重渲染：memo 让未变的 message 跳过重绘。
+// 依赖签名去重复用旧数组引用，配合此处 memo 才生效（父级需传稳定的 onMediaReady）。
+export const ChatBubble = memo(ChatBubbleComponent);

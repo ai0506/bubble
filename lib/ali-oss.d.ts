@@ -16,6 +16,7 @@ declare module "ali-oss" {
     expires?: number;
     method?: string;
     "Content-Type"?: string;
+    process?: string;
   };
 
   class OSS {

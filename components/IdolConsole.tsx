@@ -9,6 +9,7 @@ import { DateDivider } from "@/components/DateDivider";
 import { IdolComposer } from "@/components/IdolComposer";
 import { compressImageForUpload } from "@/lib/clientImageCompression";
 import { formatDateDivider } from "@/lib/dates";
+import { getMessagesSignature } from "@/lib/messageSignature";
 import type { ChatMessage, Idol } from "@/lib/types";
 
 const TEXT = {
@@ -68,6 +69,9 @@ export function IdolConsole() {
     bottomRef.current?.scrollIntoView({ behavior, block: "end" });
   }, []);
 
+  // 稳定引用，供 memo 化的 ChatBubble 复用（内联箭头会破坏 memo）
+  const handleMediaReady = useCallback(() => scrollToBottom("auto"), [scrollToBottom]);
+
   const loadMessages = useCallback(async () => {
     const response = await fetch("/api/idol/messages", { cache: "no-store" });
     if (response.status === 401) {
@@ -76,7 +80,10 @@ export function IdolConsole() {
     }
     if (!response.ok) return;
     const data = (await response.json()) as { messages: ChatMessage[] };
-    setMessages(data.messages);
+    // 内容未变则复用旧数组引用，避免整列表重渲染 + 触底滚动
+    setMessages((current) =>
+      getMessagesSignature(current) === getMessagesSignature(data.messages) ? current : data.messages,
+    );
   }, []);
 
   const bootstrap = useCallback(async () => {
@@ -103,8 +110,21 @@ export function IdolConsole() {
 
   useEffect(() => {
     if (!authed) return;
-    const timer = window.setInterval(() => void loadMessages(), 15_000);
-    return () => window.clearInterval(timer);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void loadMessages();
+    }, 15_000);
+
+    // 切回前台立即拉一次
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void loadMessages();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [authed, loadMessages]);
 
   async function login(event: React.FormEvent<HTMLFormElement>) {
@@ -467,7 +487,7 @@ export function IdolConsole() {
                   message={message}
                   viewerName={viewerName}
                   selfKind="admin"
-                  onMediaReady={() => scrollToBottom("auto")}
+                  onMediaReady={handleMediaReady}
                 />
                 <div className="absolute right-2 top-1 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
                   {message.sender_kind === "admin" && message.type === "voice" ? (
