@@ -26,6 +26,7 @@ type ChatBubbleProps = {
   message: ChatMessage;
   viewerName: string;
   onMediaReady?: () => void;
+  showReadCount?: boolean;
   // 哪一方算「我」（气泡靠右）。粉丝端 = user（默认），爱豆端大群 = admin。
   selfKind?: MessageSenderKind;
 };
@@ -87,7 +88,13 @@ function AdminAvatar({ idolId }: { idolId: string }) {
   );
 }
 
-function ChatBubbleComponent({ message, viewerName, onMediaReady, selfKind = "user" }: ChatBubbleProps) {
+function ChatBubbleComponent({
+  message,
+  viewerName,
+  onMediaReady,
+  showReadCount = false,
+  selfKind = "user",
+}: ChatBubbleProps) {
   const [mediaUrl, setMediaUrl] = useState("");
   const [motionUrl, setMotionUrl] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -454,7 +461,12 @@ function ChatBubbleComponent({ message, viewerName, onMediaReady, selfKind = "us
         {isSelf ? (message.sender_kind === "admin" ? <AdminAvatar idolId={message.idol_id} /> : <UserAvatar />) : null}
       </div>
       <div className={`mt-1 flex ${justifyClass} ${isSelf ? "pr-10" : "pl-10"}`}>
-        <span className="px-1 text-[11px] text-slate-400">{formatClock(message.created_at)}</span>
+        <span className="px-1 text-[11px] text-slate-400">
+          {formatClock(message.created_at)}
+          {showReadCount && message.sender_kind === "admin" && message.visibility === "public"
+            ? ` · ${message.read_count ?? 0}人已读`
+            : null}
+        </span>
       </div>
     </div>
   );

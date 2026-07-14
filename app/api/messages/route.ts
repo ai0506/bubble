@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { resolveWritableIdolId } from "@/lib/idols";
 import { isNicknameLengthValid, isUserMessageLengthValid, NICKNAME_MAX_LENGTH, USER_MESSAGE_MAX_LENGTH } from "@/lib/limits";
-import { isMissingMessagesTable } from "@/lib/supabaseErrors";
+import { isMissingMessageReadsTable, isMissingMessagesTable } from "@/lib/supabaseErrors";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 function normalizeText(value: unknown, maxLength: number) {
@@ -11,6 +11,8 @@ function normalizeText(value: unknown, maxLength: number) {
 function isValidVisitorId(value: string) {
   return /^[a-zA-Z0-9_-]{8,120}$/.test(value);
 }
+
+const READ_BATCH_SIZE = 200;
 
 export async function GET(request: NextRequest) {
   const visitorId = request.nextUrl.searchParams.get("visitorId")?.trim();
@@ -42,6 +44,24 @@ export async function GET(request: NextRequest) {
       return Response.json({ messages: [] });
     }
     return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  // 只有客户端明确确认内容已展示时才记录已读；每批限制数量，避免历史消息过多时请求过大。
+  if (request.nextUrl.searchParams.get("markRead") === "true") {
+    const publicMessageIds = (data ?? [])
+      .filter((message) => message.sender_kind === "admin" && message.visibility === "public")
+      .map((message) => message.id);
+    for (let index = 0; index < publicMessageIds.length; index += READ_BATCH_SIZE) {
+      const batch = publicMessageIds.slice(index, index + READ_BATCH_SIZE);
+      const { error: readError } = await supabase.from("message_reads").upsert(
+        batch.map((messageId) => ({ message_id: messageId, visitor_id: visitorId })),
+        { onConflict: "message_id,visitor_id", ignoreDuplicates: true },
+      );
+      // 已读表尚未迁移时不阻断粉丝正常看消息，迁移完成后自动开始统计。
+      if (readError && !isMissingMessageReadsTable(readError)) {
+        return Response.json({ error: readError.message }, { status: 500 });
+      }
+    }
   }
 
   return Response.json({ messages: data ?? [] });
