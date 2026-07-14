@@ -1,11 +1,13 @@
 import { requireIdol } from "@/lib/idolAuth";
 import { deleteObjects } from "@/lib/objectStorage";
-import { isMissingMessagesTable } from "@/lib/supabaseErrors";
+import { isMissingMessageReadsTable, isMissingMessagesTable } from "@/lib/supabaseErrors";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 function normalizeText(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
+
+const READ_BATCH_SIZE = 200;
 
 // 爱豆频道「大群」：本爱豆的全部消息（自己的公开广播 + 所有粉丝发来的私信），时间升序。
 export async function GET() {
@@ -27,7 +29,34 @@ export async function GET() {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  return Response.json({ messages: data ?? [] });
+  const messages = data ?? [];
+  const publicMessageIds = messages
+    .filter((message) => message.sender_kind === "admin" && message.visibility === "public")
+    .map((message) => message.id);
+  const readCounts = new Map<string, number>();
+
+  for (let index = 0; index < publicMessageIds.length; index += READ_BATCH_SIZE) {
+    const batch = publicMessageIds.slice(index, index + READ_BATCH_SIZE);
+    const { data: reads, error: readError } = await supabase
+      .from("message_reads")
+      .select("message_id,visitor_id")
+      .in("message_id", batch);
+
+    if (readError && !isMissingMessageReadsTable(readError)) {
+      return Response.json({ error: readError.message }, { status: 500 });
+    }
+
+    for (const read of reads ?? []) {
+      readCounts.set(read.message_id, (readCounts.get(read.message_id) ?? 0) + 1);
+    }
+  }
+
+  return Response.json({
+    messages: messages.map((message) => ({
+      ...message,
+      read_count: readCounts.get(message.id) ?? 0,
+    })),
+  });
 }
 
 // 爱豆发文字广播（对本频道所有粉丝公开）。

@@ -487,6 +487,7 @@ export function IdolConsole() {
                   message={message}
                   viewerName={viewerName}
                   selfKind="admin"
+                  showReadCount
                   onMediaReady={handleMediaReady}
                 />
                 <div className="absolute right-2 top-1 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">

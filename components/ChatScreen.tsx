@@ -77,9 +77,9 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
   const handleMediaReady = useCallback(() => scrollToBottom("auto"), [scrollToBottom]);
 
   const loadMessages = useCallback(
-    async (id: string) => {
+    async (id: string, markRead = false) => {
       const response = await fetch(
-        `/api/messages?visitorId=${encodeURIComponent(id)}&idolId=${encodeURIComponent(idolId)}`,
+        `/api/messages?visitorId=${encodeURIComponent(id)}&idolId=${encodeURIComponent(idolId)}${markRead ? "&markRead=true" : ""}`,
         { cache: "no-store" },
       );
       if (!response.ok) return;
@@ -102,7 +102,9 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
     setInitialized(true);
 
     setLoading(true);
-    loadMessages(id).finally(() => setLoading(false));
+    loadMessages(id, isSubscriptionActive(idolId) && document.visibilityState === "visible").finally(() =>
+      setLoading(false),
+    );
   }, [loadMessages, idolId]);
 
   useEffect(() => {
@@ -114,12 +116,14 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
 
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
-      void loadMessages(visitorId);
+      if (isSubscriptionActive(idolId)) void loadMessages(visitorId, true);
     }, 15_000);
 
     // 页面从后台切回前台时立即拉一次，避免等下一个轮询周期
     const onVisible = () => {
-      if (document.visibilityState === "visible") void loadMessages(visitorId);
+      if (document.visibilityState === "visible" && isSubscriptionActive(idolId)) {
+        void loadMessages(visitorId, true);
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
 
@@ -127,7 +131,7 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [loadMessages, visitorId]);
+  }, [idolId, loadMessages, visitorId]);
 
   async function sendPrivateMessage(text: string) {
     if (!visitorId || !nickname || !subscribed) return;
@@ -155,6 +159,7 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
     const expiresAt = activateOneYearSubscription(idolId);
     setSubscriptionExpiresAt(expiresAt);
     setSubscribed(true);
+    if (visitorId && document.visibilityState === "visible") void loadMessages(visitorId, true);
   }
 
   let lastDivider = "";
@@ -181,7 +186,7 @@ export function ChatScreen({ idol, onBack }: ChatScreenProps) {
           </div>
           <button
             type="button"
-            onClick={() => visitorId && loadMessages(visitorId)}
+            onClick={() => visitorId && loadMessages(visitorId, subscribed && document.visibilityState === "visible")}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-700"
             aria-label={REFRESH_LABEL}
           >
